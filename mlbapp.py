@@ -6,7 +6,7 @@ from matplotlib.patches import Rectangle, Circle, Polygon
 import pickle
 from io import StringIO
 
-st.set_page_config(page_title="MLB Pitch Predictor", page_icon="⚾", layout="wide")
+st.set_page_config(page_title="MLB Pitch Predictor v1.0.0", page_icon="⚾", layout="wide")
 
 st.markdown("""
     <style>
