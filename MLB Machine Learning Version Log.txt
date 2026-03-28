@@ -3,4 +3,6 @@ ______________________
 V1.1.0: Overhauled the machine learning model: ~25,000 pitches used and two new parameters included, swing length and bat speed. Increased model accuracy from 63% → 80%. Added sliders for the new swing length and bat speed, as well as the swing parameter, which is a yes/no if the batter swung. 
 
 
-V1.1.1: Added unit labels to the sliders, removed the option for the user to select if the batter swung; instead, that will automatically be inputted depending if the swing_speed = 0 or >0. For example, if swing_speed is 20mph, then swing will be ‘yes’. If swing_speed is 0mph, then swing will be ‘no’. Added additional dialogue depending on the swing_speed. Added more colors and emojis.
+V1.1.1: Added unit labels to the sliders, 
+removed the option for the user to select if the batter swung; instead, that will automatically be inputted depending if the swing_speed = 0 or >0. For example, if swing_speed is 20mph, then swing will be ‘yes’. If swing_speed is 0mph, then swing will be ‘no’. 
+Added additional dialogue depending on the swing_speed. Added more colors and emojis.
