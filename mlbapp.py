@@ -6,10 +6,8 @@ from matplotlib.patches import Rectangle, Circle, Polygon
 import pickle
 from io import StringIO
 
-# -----------------------------
-# Page config and styling
-# -----------------------------
 st.set_page_config(page_title="MLB Pitch Predictor v1.0.0", page_icon="⚾", layout="wide")
+
 st.markdown("""
     <style>
     .main { background-color: #f5f7f9; }
@@ -17,9 +15,6 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# -----------------------------
-# Load model
-# -----------------------------
 @st.cache_resource
 def load_model():
     try:
@@ -31,9 +26,7 @@ def load_model():
 
 model = load_model()
 
-# -----------------------------
-# Load batter stats CSV
-# -----------------------------
+# Player CSV
 players_csv = """
 player,height,OBP,k_pct,contact_pct,stance,bb_pct,ba
 "Judge, Aaron",79,0.457,0.236,0.654,R,0.183,0.331
@@ -61,55 +54,35 @@ player,height,OBP,k_pct,contact_pct,stance,bb_pct,ba
 """
 players_df = pd.read_csv(StringIO(players_csv))
 
-# -----------------------------
-# Session state for pitch history
-# -----------------------------
-if 'history' not in st.session_state:
-    st.session_state.history = []
-
-# -----------------------------
-# Sidebar inputs
-# -----------------------------
+# Sidebar for inputs
 st.sidebar.header("🕹️ Pitch Control Room")
 with st.sidebar:
     player = st.selectbox("Select Batter", players_df['player'])
     batter_stats = players_df[players_df['player'] == player].iloc[0]
     st.divider()
     
-    pitch_type = st.selectbox(
-        "Pitch Selection", 
-        ["4-Seam Fastball", "Changeup", "Slider", "Sinker", "Cutter", "Split-Finger", 
-         "Curveball", "Knuckle Curve", "Slurve", "Sweeper"]
-    )
+    pitch_type = st.selectbox("Pitch Selection", 
+        ["4-Seam Fastball", "Changeup", "Slider", "Sinker", "Cutter", 
+         "Split-Finger", "Curveball", "Knuckle Curve", "Slurve", 
+         "Sweeper", "Eephus", "Forkball", "Other", "Slow Curve"])
     
-    release_speed = st.slider("Pitch Velocity (mph)", 70.0, 105.0, 95.0, 0.5)
-    effective_speed = st.slider("Effective Velocity (mph)", 70.0, 105.0, 95.0, 0.5)
+    release_speed = st.slider("Release Speed (mph)", 70.0, 105.0, 95.0, 0.5)
+    effective_speed = st.slider("Effective Speed (mph)", 70.0, 105.0, 95.0, 0.5)
     release_spin_rate = st.slider("Spin Rate (rpm)", 1500.0, 3500.0, 2300.0, 50.0)
-    
-    plate_x = st.slider("Horizontal Position (ft, Plate X)", -2.5, 2.5, 0.0, 0.01)
-    plate_z = st.slider("Vertical Position (ft, Plate Z)", 0.0, 5.0, 2.5, 0.01)
-    
-    bat_speed = st.slider("Bat Speed (mph)", 0.0, 120.0, 80.0, 0.5)
-    swing_length = st.slider("Swing Length (ft)", 0.0, 10.0, 5.0, 0.1)
-    swung = 0 if bat_speed == 0 else 1  # automatic swung calculation
-    
+    plate_x = st.slider("Horizontal Plate Location (ft)", -2.5, 2.5, 0.0, 0.01)
+    plate_z = st.slider("Vertical Plate Location (ft)", 0.0, 5.0, 2.5, 0.01)
+    balls = st.selectbox("Balls", [0,1,2,3])
+    strikes = st.selectbox("Strikes", [0,1,2])
     release_pos_y = st.slider("Release Height (ft)", 3.0, 8.0, 6.0, 0.1)
-    
-    b_col, s_col = st.columns(2)
-    with b_col: balls = st.selectbox("Balls", [0,1,2,3])
-    with s_col: strikes = st.selectbox("Strikes", [0,1,2])
     
     st.divider()
     if st.button("Clear History"):
         st.session_state.history = []
         st.rerun()
 
-# -----------------------------
-# Main page header and metrics
-# -----------------------------
+# Title and metrics
 st.title("⚾ MLB Pitch Analysis Dashboard (v1.0.0)")
 st.markdown(f"**Match-up:** Pitcher vs. **{player}** ({batter_stats.stance})")
-
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("Stance", batter_stats.stance)
 m2.metric("OBP", f"{batter_stats.OBP:.3f}")
@@ -118,61 +91,70 @@ m4.metric("Count", f"{balls}-{strikes}")
 
 st.divider()
 
-# -----------------------------
-# Prepare input features for model
-# -----------------------------
+# Model input features
 expected_features = [
-    'release_speed', 'plate_x', 'plate_z', 'release_spin_rate', 'height', 'OBP', 
-    'k_pct', 'contact_pct', 'bb_pct', 'ba', 'balls', 'strikes', 'effective_speed', 
-    'p_throws', 'release_extension', 'release_pos_y', 'distance_from_center', 
+    'release_speed', 'plate_x', 'plate_z', 'release_spin_rate', 'height', 'OBP',
+    'k_pct', 'contact_pct', 'bb_pct', 'ba', 'balls', 'strikes', 'effective_speed',
+    'p_throws', 'release_extension', 'release_pos_y', 'distance_from_center',
     'strikes_vs_balls', 'meatball', 'hittability', 'spin_effect', 
-    'stance_L', 'stance_R', 
-    'pitch_name_4-Seam Fastball', 'pitch_name_Changeup', 'pitch_name_Curveball', 
-    'pitch_name_Cutter', 'pitch_name_Knuckle Curve', 'pitch_name_Sinker', 
-    'pitch_name_Slider', 'pitch_name_Slurve', 'pitch_name_Split-Finger', 
-    'pitch_name_Sweeper', 
+    'stance_L','stance_R',
+    'pitch_name_4-Seam Fastball','pitch_name_Changeup','pitch_name_Curveball','pitch_name_Cutter',
+    'pitch_name_Eephus','pitch_name_Forkball','pitch_name_Knuckle Curve','pitch_name_Other',
+    'pitch_name_Sinker','pitch_name_Slider','pitch_name_Slow Curve','pitch_name_Slurve',
+    'pitch_name_Split-Finger','pitch_name_Sweeper',
     'count_0-0','count_0-1','count_0-2','count_1-0','count_1-1','count_1-2',
-    'count_2-0','count_2-1','count_2-2','count_3-0','count_3-1','count_3-2',
-    'bat_speed', 'swing_length', 'swung'
+    'count_2-0','count_2-1','count_2-2','count_3-0','count_3-1','count_3-2'
 ]
 
-# initialize zeroes
+# Build input dict
 input_dict = {feat: [0.0] for feat in expected_features}
 
-# fill in values
+# Derived features
+distance_from_center = np.sqrt(plate_x**2 + (plate_z - 2.5)**2)
+strikes_vs_balls = strikes / (balls + 1)
+meatball = 1.0 if (abs(plate_x) < 0.3 and abs(plate_z - 2.5) < 0.3) else 0.0
+hittability = batter_stats.contact_pct / (1 + distance_from_center)
+spin_effect = release_spin_rate * release_speed
+p_throws = 0 # placeholder, assume right-handed pitcher
+release_extension = 6.0 # placeholder, could be slider
+
+# Fill features
 input_dict.update({
-    'release_speed': [release_speed], 'plate_x': [plate_x], 'plate_z': [plate_z],
-    'release_spin_rate': [release_spin_rate], 'effective_speed': [effective_speed],
-    'release_pos_y': [release_pos_y], 'balls': [balls], 'strikes': [strikes],
-    'height': [batter_stats.height], 'OBP': [batter_stats.OBP],
-    'k_pct': [batter_stats.k_pct], 'contact_pct': [batter_stats.contact_pct],
-    'bb_pct': [batter_stats.bb_pct], 'ba': [batter_stats.ba],
-    'distance_from_center': [np.sqrt(plate_x**2 + (plate_z-2.5)**2)],
-    'strikes_vs_balls': [strikes/(balls+1)],
-    'meatball': [1.0 if (abs(plate_x)<0.3 and abs(plate_z-2.5)<0.3) else 0.0],
-    'hittability': [batter_stats.contact_pct / (1 + np.sqrt(plate_x**2 + (plate_z-2.5)**2))],
-    'spin_effect': [release_spin_rate * release_speed],
-    'bat_speed': [bat_speed], 'swing_length': [swing_length], 'swung': [swung]
+    'release_speed':[release_speed],'plate_x':[plate_x],'plate_z':[plate_z],
+    'release_spin_rate':[release_spin_rate],'effective_speed':[effective_speed],
+    'release_pos_y':[release_pos_y],'balls':[balls],'strikes':[strikes],
+    'height':[batter_stats.height],'OBP':[batter_stats.OBP],
+    'k_pct':[batter_stats.k_pct],'contact_pct':[batter_stats.contact_pct],
+    'bb_pct':[batter_stats.bb_pct],'ba':[batter_stats.ba],
+    'distance_from_center':[distance_from_center],'strikes_vs_balls':[strikes_vs_balls],
+    'meatball':[meatball],'hittability':[hittability],'spin_effect':[spin_effect],
+    'p_throws':[p_throws],'release_extension':[release_extension]
 })
 
-# one-hot encoding for pitch, stance, count
+# Pitch type
 input_dict[f'pitch_name_{pitch_type}'] = [1.0]
+
+# Stance
 input_dict[f'stance_{batter_stats.stance}'] = [1.0]
+
+# Count
 input_dict[f'count_{balls}-{strikes}'] = [1.0]
 
+# Convert to DataFrame
 X_input = pd.DataFrame(input_dict)[expected_features]
 
-# -----------------------------
-# Prediction and visualization
-# -----------------------------
+# Visualization and prediction
 viz_col, pred_col = st.columns([1,1])
 
 if model:
     try:
         probs = model.predict_proba(X_input)[0]
-        outcomes = ['Ball', 'Strike', 'In Play']
+        outcomes = ['Ball','Hit into Play','Strike']
         max_idx = np.argmax(probs)
         prediction = outcomes[max_idx]
+
+        if 'history' not in st.session_state:
+            st.session_state.history = []
 
         st.session_state.history.append({
             "Batter": player,
@@ -182,25 +164,25 @@ if model:
             "Result": f"{prediction} ({probs[max_idx]:.1%})"
         })
 
-        # Strikezone + batter
+        # Pitcher view visualization
         with viz_col:
             st.subheader("🎯 Pitcher's Perspective")
-            fig1, ax1 = plt.subplots(figsize=(5,6))
-            fig1.patch.set_facecolor('#f5f7f9')
+            fig, ax = plt.subplots(figsize=(5,6))
+            fig.patch.set_facecolor('#f5f7f9')
             batter_x_pos = 1.6 if batter_stats.stance=='R' else -1.6
-            ax1.add_patch(Rectangle((batter_x_pos-0.2, 1.5),0.4,2.8,color='#1d3557',alpha=0.7))
-            ax1.add_patch(Circle((batter_x_pos,4.5),0.22,color='#1d3557',alpha=0.7))
+            ax.add_patch(Rectangle((batter_x_pos-0.2,1.5),0.4,2.8,color='#1d3557',alpha=0.7))
+            ax.add_patch(Circle((batter_x_pos,4.5),0.22,color='#1d3557',alpha=0.7))
             plate_coords = [[-0.85,0.4],[0.85,0.4],[0.85,0.2],[0,0],[-0.85,0.2]]
-            ax1.add_patch(Polygon(plate_coords,closed=True,color='#adb5bd',alpha=0.6))
-            ax1.add_patch(Rectangle((-0.85,1.6),1.7,1.8,edgecolor='#343a40',facecolor='#ffffff',alpha=0.4,linewidth=3))
-            ax1.add_patch(Rectangle((-0.4,2.1),0.8,0.8,edgecolor='#e63946',facecolor='none',linestyle='--',alpha=0.3))
-            ax1.add_patch(Circle((plate_x,plate_z),0.12,color='#e63946',zorder=15,edgecolor='black'))
-            ax1.set_xlim(-2.5,2.5)
-            ax1.set_ylim(0,5.5)
-            ax1.set_xlabel("Horizontal (ft)")
-            ax1.set_ylabel("Vertical (ft)")
-            ax1.grid(True, linestyle=':', alpha=0.4)
-            st.pyplot(fig1)
+            ax.add_patch(Polygon(plate_coords, closed=True, color='#adb5bd', alpha=0.6))
+            ax.add_patch(Rectangle((-0.85,1.6),1.7,1.8,edgecolor='#343a40', facecolor='none', alpha=0.4, linewidth=3))
+            ax.add_patch(Rectangle((-0.4,2.1),0.8,0.8, edgecolor='#e63946', facecolor='none', linestyle='--', alpha=0.3))
+            ax.add_patch(Circle((plate_x,plate_z),0.12,color='#e63946',zorder=15,edgecolor='black'))
+            ax.set_xlim(-2.5,2.5)
+            ax.set_ylim(0,5.5)
+            ax.set_xlabel("Horizontal (ft)")
+            ax.set_ylabel("Vertical (ft)")
+            ax.grid(True, linestyle=':', alpha=0.4)
+            st.pyplot(fig)
 
         # Probability chart
         with pred_col:
@@ -210,14 +192,14 @@ if model:
             colors = ['#457b9d','#1d3557','#e63946']
             bars = ax2.bar(outcomes,probs,color=colors,edgecolor='black',alpha=0.8)
             ax2.set_ylim(0,1.0)
-            ax2.set_ylabel("Probability (%)")
+            ax2.set_ylabel("Probability")
             for bar in bars:
                 height = bar.get_height()
                 ax2.text(bar.get_x()+bar.get_width()/2.,height+0.02,f'{height:.1%}',ha='center',va='bottom',fontweight='bold')
             st.pyplot(fig2)
             st.success(f"Top Prediction: {prediction} ({probs[max_idx]:.1%})")
 
-        # Pitch history
+        # History
         if st.session_state.history:
             st.divider()
             st.subheader("📜 Recent Pitches")
