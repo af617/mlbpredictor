@@ -6,12 +6,30 @@ from matplotlib.patches import Rectangle, Circle
 import pickle
 from io import StringIO
 
+# Page Config
+st.set_page_config(page_title="MLB Pitch Predictor", page_icon="⚾", layout="wide")
+
+# Custom CSS for a cleaner look
+st.markdown("""
+    <style>
+    .main { background-color: #f5f7f9; }
+    .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .sidebar .sidebar-content { background-image: linear-gradient(#2e7bcf,#2e7bcf); color: white; }
+    </style>
+    """, unsafe_allow_stdio=True)
+
+# -----------------------------
 
 # -----------------------------
 @st.cache_resource
 def load_model():
-    with open("xgb_models.pkl", "rb") as f:
-        return pickle.load(f)
+    # Wrap in try-except for deployment safety
+    try:
+        with open("xgb_models.pkl", "rb") as f:
+            return pickle.load(f)
+    except FileNotFoundError:
+        st.error("Model file 'xgb_models.pkl' not found. Please upload it to your repo.")
+        return None
 
 model = load_model()
 
@@ -42,33 +60,52 @@ player,height,OBP,k_pct,contact_pct,stance,bb_pct,ba
 """
 players_df = pd.read_csv(StringIO(players_csv))
 
-
-# -----------------------------
-st.title("⚾ Baseball Pitch Outcome Predictor")
-
-# Player selection
-player = st.selectbox("Select Batter", players_df['player'])
-batter_stats = players_df[players_df['player'] == player].iloc[0]
-
-# Pitch type
-pitch_type = st.selectbox(
-    "Pitch Type",
-    ["4-Seam Fastball", "Changeup", "Slider", "Sinker", "Cutter", "Split-Finger", "Curveball", "Knuckle Curve", "Slurve", "Sweeper"]
-)
-
-# Sliders - Ensuring float types for coordination
-release_speed = st.slider("Release Speed (mph)", 70.0, 105.0, 95.0)
-release_spin_rate = st.slider("Spin Rate (rpm)", 1500.0, 3500.0, 2300.0)
-plate_x = st.slider("Plate X (feet, left=-, right=+)", -2.5, 2.5, 0.0, 0.01)
-plate_z = st.slider("Plate Z (feet, bottom=0, top=5)", 0.0, 5.0, 2.5, 0.01)
-balls = st.slider("Balls Count", 0, 3, 0)
-strikes = st.slider("Strikes Count", 0, 2, 0)
-effective_speed = st.slider("Effective Speed (mph)", 70.0, 105.0, 95.0)
-release_pos_y = st.slider("Release Pos Y (feet)", 3.0, 8.0, 6.0)
-
 # -----------------------------
 
-# List from your specific error message
+# -----------------------------
+st.sidebar.header("🕹️ Pitch Control Room")
+
+with st.sidebar:
+    player = st.selectbox("Select Batter", players_df['player'])
+    batter_stats = players_df[players_df['player'] == player].iloc[0]
+    
+    st.divider()
+    
+    pitch_type = st.selectbox("Pitch Selection", 
+        ["4-Seam Fastball", "Changeup", "Slider", "Sinker", "Cutter", "Split-Finger", "Curveball", "Knuckle Curve", "Slurve", "Sweeper"])
+    
+    st.subheader("Pitch Physics")
+    release_speed = st.slider("Velocity (mph)", 70.0, 105.0, 95.0, 0.5)
+    effective_speed = st.slider("Effective Velocity (mph)", 70.0, 105.0, 95.0, 0.5)
+    release_spin_rate = st.slider("Spin Rate (rpm)", 1500.0, 3500.0, 2300.0, 50.0)
+    
+    st.subheader("Plate Location")
+    plate_x = st.slider("Horizontal (Left/Right)", -2.5, 2.5, 0.0, 0.01)
+    plate_z = st.slider("Vertical (Height)", 0.0, 5.0, 2.5, 0.01)
+    
+    st.subheader("Game Situation")
+    b_col, s_col = st.columns(2)
+    with b_col: balls = st.selectbox("Balls", [0,1,2,3])
+    with s_col: strikes = st.selectbox("Strikes", [0,1,2])
+    
+    release_pos_y = st.slider("Release Height (ft)", 3.0, 8.0, 6.0, 0.1)
+
+# -----------------------------
+
+# -----------------------------
+st.title("⚾ MLB Pitch Analysis Dashboard")
+st.markdown(f"**Analyzing match-up:** Pitcher vs. **{player}**")
+
+# Metrics Row
+m1, m2, m3, m4 = st.columns(4)
+m1.metric("Batter Stance", batter_stats.stance)
+m2.metric("Avg OBP", f"{batter_stats.OBP:.3f}")
+m3.metric("Contact %", f"{batter_stats.contact_pct*100:.1f}%")
+m4.metric("Current Count", f"{balls}-{strikes}")
+
+st.divider()
+
+# Logic for features (Simplified as per previous fix)
 expected_features = [
     'release_speed', 'plate_x', 'plate_z', 'release_spin_rate', 'height', 'OBP', 
     'k_pct', 'contact_pct', 'bb_pct', 'ba', 'balls', 'strikes', 'effective_speed', 
@@ -84,71 +121,68 @@ expected_features = [
     'count_3-1', 'count_3-2'
 ]
 
-# Initialize all features to 0.0
 input_dict = {feat: [0.0] for feat in expected_features}
+input_dict.update({
+    'release_speed': [float(release_speed)], 'plate_x': [float(plate_x)], 'plate_z': [float(plate_z)],
+    'release_spin_rate': [float(release_spin_rate)], 'effective_speed': [float(effective_speed)],
+    'release_pos_y': [float(release_pos_y)], 'balls': [float(balls)], 'strikes': [float(strikes)],
+    'height': [float(batter_stats.height)], 'OBP': [float(batter_stats.OBP)],
+    'k_pct': [float(batter_stats.k_pct)], 'contact_pct': [float(batter_stats.contact_pct)],
+    'bb_pct': [float(batter_stats.bb_pct)], 'ba': [float(batter_stats.ba)],
+    'distance_from_center': [np.sqrt(plate_x**2 + (plate_z - 2.5)**2)],
+    'strikes_vs_balls': [strikes / (balls + 1)],
+    'meatball': [1.0 if (abs(plate_x) < 0.3 and abs(plate_z - 2.5) < 0.3) else 0.0]
+})
+input_dict[f'pitch_name_{pitch_type}'] = [1.0]
+input_dict[f'stance_{batter_stats.stance}'] = [1.0]
+input_dict[f'count_{balls}-{strikes}'] = [1.0]
 
-# Update with user inputs
-input_dict['release_speed'] = [float(release_speed)]
-input_dict['plate_x'] = [float(plate_x)]
-input_dict['plate_z'] = [float(plate_z)]
-input_dict['release_spin_rate'] = [float(release_spin_rate)]
-input_dict['effective_speed'] = [float(effective_speed)]
-input_dict['release_pos_y'] = [float(release_pos_y)]
-input_dict['balls'] = [float(balls)]
-input_dict['strikes'] = [float(strikes)]
-
-# Player Stats
-input_dict['height'] = [float(batter_stats.height)]
-input_dict['OBP'] = [float(batter_stats.OBP)]
-input_dict['k_pct'] = [float(batter_stats.k_pct)]
-input_dict['contact_pct'] = [float(batter_stats.contact_pct)]
-input_dict['bb_pct'] = [float(batter_stats.bb_pct)]
-input_dict['ba'] = [float(batter_stats.ba)]
-
-# Derived Features
-input_dict['distance_from_center'] = [np.sqrt(plate_x**2 + (plate_z - 2.5)**2)]
-input_dict['strikes_vs_balls'] = [strikes / (balls + 1)]
-input_dict['meatball'] = [1.0 if (abs(plate_x) < 0.3 and abs(plate_z - 2.5) < 0.3) else 0.0]
-
-# Categorical Flags
-if f'pitch_name_{pitch_type}' in input_dict:
-    input_dict[f'pitch_name_{pitch_type}'] = [1.0]
-
-if f'stance_{batter_stats.stance}' in input_dict:
-    input_dict[f'stance_{batter_stats.stance}'] = [1.0]
-
-if f'count_{balls}-{strikes}' in input_dict:
-    input_dict[f'count_{balls}-{strikes}'] = [1.0]
-
-# Convert to DataFrame with strict ordering
 X_input = pd.DataFrame(input_dict)[expected_features]
 
+# -----------------------------
 
 # -----------------------------
-try:
+viz_col, pred_col = st.columns([1, 1])
+
+if model:
     probs = model.predict_proba(X_input)[0]
     outcomes = ['Ball', 'Strike', 'In Play']
     
+    with viz_col:
+        st.subheader("🎯 Pitch Location")
+        fig, ax = plt.subplots(figsize=(5, 6))
+        fig.patch.set_facecolor('#f5f7f9')
+        
+        # Strike Zone (approximate 17" wide, knee to chest)
+        ax.add_patch(Rectangle((-0.85, 1.6), 1.7, 1.8, edgecolor='#333333', facecolor='#e1e8ef', alpha=0.5, linewidth=3, label="Strike Zone"))
+        
+        # Inner "Heart" of the zone
+        ax.add_patch(Rectangle((-0.5, 2.0), 1.0, 1.0, edgecolor='#cc0000', facecolor='none', linestyle='--', alpha=0.3))
+        
+        # The Ball
+        ax.add_patch(Circle((plate_x, plate_z), 0.12, color='#cc0000', zorder=5))
+        ax.annotate("Pitch", (plate_x + 0.15, plate_z), fontsize=10, fontweight='bold')
 
-    # -----------------------------
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("Strikezone")
-        fig, ax = plt.subplots(figsize=(4,5))
-        # Zone boundaries
-        ax.add_patch(Rectangle((-0.85, 1.6), 1.7, 1.8, edgecolor='black', facecolor='none', linewidth=2))
-        # The Pitch
-        ax.add_patch(Circle((plate_x, plate_z), 0.12, color='red', alpha=0.8))
-        ax.set_xlim(-2, 2)
-        ax.set_ylim(0, 5)
-        ax.set_aspect('equal')
+        # Formatting
+        ax.set_xlim(-2.5, 2.5)
+        ax.set_ylim(0, 5.5)
+        ax.axvline(0, color='gray', linestyle='-', linewidth=0.5)
+        ax.set_xticks([-2, -0.85, 0, 0.85, 2])
+        ax.set_title(f"{pitch_type} vs {player}", fontsize=12)
         st.pyplot(fig)
 
-    with col2:
-        st.subheader("Probabilities")
-        prob_df = pd.DataFrame({'Outcome': outcomes, 'Probability': probs})
-        st.bar_chart(prob_df.set_index('Outcome'))
-
-except Exception as e:
-    st.error(f"Prediction Error: {e}")
+    with pred_col:
+        st.subheader("📊 Probability Breakdown")
+        
+        # Create a nice colored bar chart
+        chart_data = pd.DataFrame({'Outcome': outcomes, 'Probability': probs})
+        
+        # Display as a table first for clarity
+        st.dataframe(chart_data.set_index('Outcome').style.format("{:.1%}"), use_container_width=True)
+        
+        # Custom bar chart using Streamlit native
+        st.bar_chart(chart_data.set_index('Outcome'))
+        
+        # Summary Text
+        max_idx = np.argmax(probs)
+        st.info(f"💡 **Prediction:** The most likely outcome is a **{outcomes[max_idx]}** ({probs[max_idx]:.1%})")
