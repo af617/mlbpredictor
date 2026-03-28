@@ -90,7 +90,6 @@ m4.metric("Count", f"{balls}-{strikes}")
 
 st.divider()
 
-# Feature Preparation logic stays the same...
 expected_features = [
     'release_speed', 'plate_x', 'plate_z', 'release_spin_rate', 'height', 'OBP', 
     'k_pct', 'contact_pct', 'bb_pct', 'ba', 'balls', 'strikes', 'effective_speed', 
@@ -143,35 +142,47 @@ if model:
 
         with viz_col:
             st.subheader("🎯 Pitcher's Perspective")
-            fig, ax = plt.subplots(figsize=(5, 6))
-            fig.patch.set_facecolor('#f5f7f9')
+            fig1, ax1 = plt.subplots(figsize=(5, 6))
+            fig1.patch.set_facecolor('#f5f7f9')
             
-            # ORIENTATION: Righty (R) stands on the RIGHT side from pitcher view
+            # ORIENTATION: Righty (R) stands on the RIGHT
             batter_x_pos = 1.6 if batter_stats.stance == 'R' else -1.6
-            
-            ax.add_patch(Rectangle((batter_x_pos - 0.2, 1.5), 0.4, 2.8, color='#1d3557', alpha=0.7))
-            ax.add_patch(Circle((batter_x_pos, 4.5), 0.22, color='#1d3557', alpha=0.7))
+            ax1.add_patch(Rectangle((batter_x_pos - 0.2, 1.5), 0.4, 2.8, color='#1d3557', alpha=0.7))
+            ax1.add_patch(Circle((batter_x_pos, 4.5), 0.22, color='#1d3557', alpha=0.7))
             
             plate_coords = [[-0.85, 0.4], [0.85, 0.4], [0.85, 0.2], [0, 0], [-0.85, 0.2]]
-            ax.add_patch(Polygon(plate_coords, closed=True, color='#adb5bd', alpha=0.6))
+            ax1.add_patch(Polygon(plate_coords, closed=True, color='#adb5bd', alpha=0.6))
             
-            ax.add_patch(Rectangle((-0.85, 1.6), 1.7, 1.8, edgecolor='#343a40', facecolor='#ffffff', alpha=0.4, linewidth=3))
-            ax.add_patch(Rectangle((-0.4, 2.1), 0.8, 0.8, edgecolor='#e63946', facecolor='none', linestyle='--', alpha=0.3))
-            ax.add_patch(Circle((plate_x, plate_z), 0.12, color='#e63946', zorder=15, edgecolor='black'))
+            ax1.add_patch(Rectangle((-0.85, 1.6), 1.7, 1.8, edgecolor='#343a40', facecolor='#ffffff', alpha=0.4, linewidth=3))
+            ax1.add_patch(Rectangle((-0.4, 2.1), 0.8, 0.8, edgecolor='#e63946', facecolor='none', linestyle='--', alpha=0.3))
+            ax1.add_patch(Circle((plate_x, plate_z), 0.12, color='#e63946', zorder=15, edgecolor='black'))
             
-            # Restored Axis Labels and Ticks
-            ax.set_xlim(-2.5, 2.5)
-            ax.set_ylim(0, 5.5)
-            ax.set_xlabel("Horizontal Position (ft)")
-            ax.set_ylabel("Vertical Position (ft)")
-            ax.axvline(0, color='#6c757d', linestyle='-', linewidth=0.5)
-            ax.grid(True, linestyle=':', alpha=0.4)
-            st.pyplot(fig)
+            ax1.set_xlim(-2.5, 2.5)
+            ax1.set_ylim(0, 5.5)
+            ax1.set_xlabel("Horizontal (ft)")
+            ax1.set_ylabel("Vertical (ft)")
+            ax1.grid(True, linestyle=':', alpha=0.4)
+            st.pyplot(fig1)
 
         with pred_col:
             st.subheader("📊 Probabilities")
-            chart_data = pd.DataFrame({'Outcome': outcomes, 'Probability': probs})
-            st.bar_chart(chart_data.set_index('Outcome'))
+            fig2, ax2 = plt.subplots(figsize=(5, 6))
+            fig2.patch.set_facecolor('#f5f7f9')
+            
+            colors = ['#457b9d', '#1d3557', '#e63946']
+            bars = ax2.bar(outcomes, probs, color=colors, edgecolor='black', alpha=0.8)
+            
+            # FIXED Y-AXIS AT 1.0
+            ax2.set_ylim(0, 1.0)
+            ax2.set_ylabel("Probability (%)")
+            
+            # Add labels on top of bars
+            for bar in bars:
+                height = bar.get_height()
+                ax2.text(bar.get_x() + bar.get_width()/2., height + 0.02,
+                        f'{height:.1%}', ha='center', va='bottom', fontweight='bold')
+            
+            st.pyplot(fig2)
             st.success(f"Top Prediction: {prediction} ({probs[max_idx]:.1%})")
 
         if st.session_state.history:
