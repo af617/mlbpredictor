@@ -69,25 +69,51 @@ release_pos_y = st.slider("Release Pos Y (feet above ground)", 3, 8, 6)
 # -----------------------------
 # 3️⃣ Prepare Features for Model
 # -----------------------------
-# Combine player stats with pitch info
-X_input = pd.DataFrame({
-    'release_speed':[release_speed],
-    'plate_x':[plate_x],
-    'plate_z':[plate_z],
-    'release_spin_rate':[release_spin_rate],
-    'effective_speed':[effective_speed],
-    'release_pos_y':[release_pos_y],
-    'height':[batter_stats.height],
-    'OBP':[batter_stats.OBP],
-    'k_pct':[batter_stats.k_pct],
-    'contact_pct':[batter_stats.contact_pct],
-    'bb_pct':[batter_stats.bb_pct],
-    'ba':[batter_stats.ba],
-})
 
-# One-hot encode pitch type
-for pt in ["4-Seam Fastball", "Changeup", "Slider", "Sinker", "Cutter", "Split-Finger", "Curveball", "Knuckle Curve", "Slurve", "Sweeper"]:
-    X_input[f'pitch_name_{pt}'] = 1 if pitch_type == pt else 0
+# 1. Define ALL expected features in the EXACT order from the error message
+expected_features = [
+    'release_speed', 'plate_x', 'plate_z', 'release_spin_rate', 'height', 'OBP', 
+    'k_pct', 'contact_pct', 'bb_pct', 'ba', 'balls', 'strikes', 'effective_speed', 
+    'p_throws', 'release_extension', 'release_pos_y', 'distance_from_center', 
+    'strikes_vs_balls', 'meatball', 'hittability', 'spin_effect', 'stance_L', 
+    'stance_R', 'pitch_name_4-Seam Fastball', 'pitch_name_Changeup', 
+    'pitch_name_Curveball', 'pitch_name_Cutter', 'pitch_name_Eephus', 
+    'pitch_name_Forkball', 'pitch_name_Knuckle Curve', 'pitch_name_Other', 
+    'pitch_name_Sinker', 'pitch_name_Slider', 'pitch_name_Slow Curve', 
+    'pitch_name_Slurve', 'pitch_name_Split-Finger', 'pitch_name_Sweeper', 
+    'count_0-0', 'count_0-1', 'count_0-2', 'count_1-0', 'count_1-1', 
+    'count_1-2', 'count_2-0', 'count_2-1', 'count_2-2', 'count_3-0', 
+    'count_3-1', 'count_3-2'
+]
+
+# 2. Initialize a dictionary with 0 for all features
+input_data = {feat: [0] for feat in expected_features}
+
+# 3. Fill in the values from your sliders/data
+input_data['release_speed'] = [release_speed]
+input_data['plate_x'] = [plate_x]
+input_data['plate_z'] = [plate_z]
+input_data['release_spin_rate'] = [release_spin_rate]
+input_data['effective_speed'] = [effective_speed]
+input_data['release_pos_y'] = [release_pos_y]
+input_data['balls'] = [balls]
+input_data['strikes'] = [strikes]
+
+# Batter Stats
+input_data['height'] = [batter_stats.height]
+input_data['OBP'] = [batter_stats.OBP]
+input_data['k_pct'] = [batter_stats.k_pct]
+input_data['contact_pct'] = [batter_stats.contact_pct]
+input_data['bb_pct'] = [batter_stats.bb_pct]
+input_data['ba'] = [batter_stats.ba]
+
+# Handle Categorical logic (One-Hot Encoding)
+input_data[f'pitch_name_{pitch_type}'] = [1]
+input_data[f'stance_{batter_stats.stance}'] = [1]
+input_data[f'count_{balls}-{strikes}'] = [1]
+
+# 4. Create the DataFrame using the ordered list
+X_input = pd.DataFrame(input_data)[expected_features]
 
 # -----------------------------
 # 4️⃣ Predict
