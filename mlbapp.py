@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle, Circle, Ellipse
+from matplotlib.patches import Rectangle, Circle, Polygon
 import pickle
 from io import StringIO
 
@@ -25,6 +25,10 @@ def load_model():
         return None
 
 model = load_model()
+
+# Initialize session state for pitch history
+if 'history' not in st.session_state:
+    st.session_state.history = []
 
 players_csv = """
 player,height,OBP,k_pct,contact_pct,stance,bb_pct,ba
@@ -121,41 +125,62 @@ if model:
     try:
         probs = model.predict_proba(X_input)[0]
         outcomes = ['Ball', 'Strike', 'In Play']
-        
+        max_idx = np.argmax(probs)
+        prediction = outcomes[max_idx]
+
+        # Log to history
+        st.session_state.history.append({
+            "Batter": player,
+            "Pitch": pitch_type,
+            "Speed": release_speed,
+            "Result": f"{prediction} ({probs[max_idx]:.1%})"
+        })
+
         with viz_col:
-            st.subheader("🎯 Pitch Location")
+            st.subheader("🎯 Pitcher's Perspective")
             fig, ax = plt.subplots(figsize=(5, 6))
             fig.patch.set_facecolor('#f5f7f9')
             
-            # Draw Batter
-            batter_x = -1.5 if batter_stats.stance == 'R' else 1.5
-            ax.add_patch(Rectangle((batter_x - 0.25, 1.5), 0.5, 2.5, color='#2e7bcf', alpha=0.4, label="Batter"))
-            ax.add_patch(Circle((batter_x, 4.3), 0.25, color='#2e7bcf', alpha=0.4))
+            # ORIENTATION FIX: 
+            # From pitcher's view, a Righty (R) stands on the RIGHT side of the plate.
+            # From pitcher's view, a Lefty (L) stands on the LEFT side of the plate.
+            batter_x_pos = 1.6 if batter_stats.stance == 'R' else -1.6
             
-            # Home Plate
-            ax.add_patch(Rectangle((-0.85, 0.1), 1.7, 0.2, color='gray', alpha=0.3))
+            # Batter Silhouette
+            ax.add_patch(Rectangle((batter_x_pos - 0.2, 1.5), 0.4, 2.8, color='#1d3557', alpha=0.7))
+            ax.add_patch(Circle((batter_x_pos, 4.5), 0.22, color='#1d3557', alpha=0.7))
+            
+            # Home Plate (House Shape)
+            plate_coords = [[-0.85, 0.4], [0.85, 0.4], [0.85, 0.2], [0, 0], [-0.85, 0.2]]
+            ax.add_patch(Polygon(plate_coords, closed=True, color='#adb5bd', alpha=0.6))
             
             # Strike Zone
-            ax.add_patch(Rectangle((-0.85, 1.6), 1.7, 1.8, edgecolor='#333333', facecolor='#e1e8ef', alpha=0.5, linewidth=3))
+            ax.add_patch(Rectangle((-0.85, 1.6), 1.7, 1.8, edgecolor='#343a40', facecolor='#ffffff', alpha=0.4, linewidth=3))
             
             # Heart of Zone
-            ax.add_patch(Rectangle((-0.5, 2.0), 1.0, 1.0, edgecolor='#cc0000', facecolor='none', linestyle='--', alpha=0.3))
+            ax.add_patch(Rectangle((-0.4, 2.1), 0.8, 0.8, edgecolor='#e63946', facecolor='none', linestyle='--', alpha=0.3))
             
             # The Pitch
-            ax.add_patch(Circle((plate_x, plate_z), 0.12, color='#cc0000', zorder=10))
+            ax.add_patch(Circle((plate_x, plate_z), 0.12, color='#e63946', zorder=15, edgecolor='black'))
             
             ax.set_xlim(-2.5, 2.5)
             ax.set_ylim(0, 5.5)
-            ax.axvline(0, color='gray', linestyle='-', linewidth=0.5)
-            ax.set_title(f"Batter View ({batter_stats.stance}HH)")
+            ax.axvline(0, color='#6c757d', linestyle='-', linewidth=0.5)
+            ax.set_axis_off()
             st.pyplot(fig)
 
         with pred_col:
             st.subheader("📊 Probabilities")
             chart_data = pd.DataFrame({'Outcome': outcomes, 'Probability': probs})
             st.bar_chart(chart_data.set_index('Outcome'))
-            max_idx = np.argmax(probs)
-            st.success(f"Top Prediction: {outcomes[max_idx]} ({probs[max_idx]:.1%})")
+            st.success(f"Top Prediction: {prediction} ({probs[max_idx]:.1%})")
+
+        # History Table
+        if st.session_state.history:
+            st.divider()
+            st.subheader("📜 Pitch History (This Session)")
+            history_df = pd.DataFrame(st.session_state.history).iloc[::-1] # Show newest first
+            st.table(history_df.head(5))
             
     except Exception as e:
         st.error(f"Error: {e}")
