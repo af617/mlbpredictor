@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle, Circle
+from matplotlib.patches import Rectangle, Circle, Ellipse
 import pickle
 from io import StringIO
 
@@ -72,7 +72,7 @@ with st.sidebar:
     release_pos_y = st.slider("Release Height (ft)", 3.0, 8.0, 6.0, 0.1)
 
 st.title("⚾ MLB Pitch Analysis Dashboard")
-st.markdown(f"**Analyzing match-up:** Pitcher vs. **{player}**")
+st.markdown(f"**Analyzing match-up:** Pitcher vs. **{player}** ({batter_stats.stance})")
 
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("Stance", batter_stats.stance)
@@ -126,12 +126,28 @@ if model:
             st.subheader("🎯 Pitch Location")
             fig, ax = plt.subplots(figsize=(5, 6))
             fig.patch.set_facecolor('#f5f7f9')
+            
+            # Draw Batter
+            batter_x = -1.5 if batter_stats.stance == 'R' else 1.5
+            ax.add_patch(Rectangle((batter_x - 0.25, 1.5), 0.5, 2.5, color='#2e7bcf', alpha=0.4, label="Batter"))
+            ax.add_patch(Circle((batter_x, 4.3), 0.25, color='#2e7bcf', alpha=0.4))
+            
+            # Home Plate
+            ax.add_patch(Rectangle((-0.85, 0.1), 1.7, 0.2, color='gray', alpha=0.3))
+            
+            # Strike Zone
             ax.add_patch(Rectangle((-0.85, 1.6), 1.7, 1.8, edgecolor='#333333', facecolor='#e1e8ef', alpha=0.5, linewidth=3))
+            
+            # Heart of Zone
             ax.add_patch(Rectangle((-0.5, 2.0), 1.0, 1.0, edgecolor='#cc0000', facecolor='none', linestyle='--', alpha=0.3))
-            ax.add_patch(Circle((plate_x, plate_z), 0.12, color='#cc0000', zorder=5))
+            
+            # The Pitch
+            ax.add_patch(Circle((plate_x, plate_z), 0.12, color='#cc0000', zorder=10))
+            
             ax.set_xlim(-2.5, 2.5)
             ax.set_ylim(0, 5.5)
             ax.axvline(0, color='gray', linestyle='-', linewidth=0.5)
+            ax.set_title(f"Batter View ({batter_stats.stance}HH)")
             st.pyplot(fig)
 
         with pred_col:
@@ -140,5 +156,6 @@ if model:
             st.bar_chart(chart_data.set_index('Outcome'))
             max_idx = np.argmax(probs)
             st.success(f"Top Prediction: {outcomes[max_idx]} ({probs[max_idx]:.1%})")
+            
     except Exception as e:
         st.error(f"Error: {e}")
