@@ -6,7 +6,7 @@ from matplotlib.patches import Rectangle, Circle
 import pickle
 from io import StringIO
 
-st.set_page_config(page_title="MLB Pitch Predictor v2.0", page_icon="⚾", layout="wide")
+st.set_page_config(page_title="MLB Pitch Predictor v1.1.1", page_icon="⚾", layout="wide")
 HIT_THRESHOLD = 0.30
 
 st.markdown("""
