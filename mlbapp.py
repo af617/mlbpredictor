@@ -6,29 +6,22 @@ from matplotlib.patches import Rectangle, Circle
 import pickle
 from io import StringIO
 
-# Page Config
 st.set_page_config(page_title="MLB Pitch Predictor", page_icon="⚾", layout="wide")
 
-# Custom CSS for a cleaner look
 st.markdown("""
     <style>
     .main { background-color: #f5f7f9; }
     .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-    .sidebar .sidebar-content { background-image: linear-gradient(#2e7bcf,#2e7bcf); color: white; }
     </style>
-    """, unsafe_allow_stdio=True)
+    """, unsafe_allow_html=True)
 
-# -----------------------------
-
-# -----------------------------
 @st.cache_resource
 def load_model():
-    # Wrap in try-except for deployment safety
     try:
         with open("xgb_models.pkl", "rb") as f:
             return pickle.load(f)
     except FileNotFoundError:
-        st.error("Model file 'xgb_models.pkl' not found. Please upload it to your repo.")
+        st.error("Model file 'xgb_models.pkl' not found.")
         return None
 
 model = load_model()
@@ -60,52 +53,35 @@ player,height,OBP,k_pct,contact_pct,stance,bb_pct,ba
 """
 players_df = pd.read_csv(StringIO(players_csv))
 
-# -----------------------------
-
-# -----------------------------
 st.sidebar.header("🕹️ Pitch Control Room")
 
 with st.sidebar:
     player = st.selectbox("Select Batter", players_df['player'])
     batter_stats = players_df[players_df['player'] == player].iloc[0]
-    
     st.divider()
-    
     pitch_type = st.selectbox("Pitch Selection", 
         ["4-Seam Fastball", "Changeup", "Slider", "Sinker", "Cutter", "Split-Finger", "Curveball", "Knuckle Curve", "Slurve", "Sweeper"])
-    
-    st.subheader("Pitch Physics")
     release_speed = st.slider("Velocity (mph)", 70.0, 105.0, 95.0, 0.5)
     effective_speed = st.slider("Effective Velocity (mph)", 70.0, 105.0, 95.0, 0.5)
     release_spin_rate = st.slider("Spin Rate (rpm)", 1500.0, 3500.0, 2300.0, 50.0)
-    
-    st.subheader("Plate Location")
     plate_x = st.slider("Horizontal (Left/Right)", -2.5, 2.5, 0.0, 0.01)
     plate_z = st.slider("Vertical (Height)", 0.0, 5.0, 2.5, 0.01)
-    
-    st.subheader("Game Situation")
     b_col, s_col = st.columns(2)
     with b_col: balls = st.selectbox("Balls", [0,1,2,3])
     with s_col: strikes = st.selectbox("Strikes", [0,1,2])
-    
     release_pos_y = st.slider("Release Height (ft)", 3.0, 8.0, 6.0, 0.1)
 
-# -----------------------------
-
-# -----------------------------
 st.title("⚾ MLB Pitch Analysis Dashboard")
 st.markdown(f"**Analyzing match-up:** Pitcher vs. **{player}**")
 
-# Metrics Row
 m1, m2, m3, m4 = st.columns(4)
-m1.metric("Batter Stance", batter_stats.stance)
-m2.metric("Avg OBP", f"{batter_stats.OBP:.3f}")
+m1.metric("Stance", batter_stats.stance)
+m2.metric("OBP", f"{batter_stats.OBP:.3f}")
 m3.metric("Contact %", f"{batter_stats.contact_pct*100:.1f}%")
-m4.metric("Current Count", f"{balls}-{strikes}")
+m4.metric("Count", f"{balls}-{strikes}")
 
 st.divider()
 
-# Logic for features (Simplified as per previous fix)
 expected_features = [
     'release_speed', 'plate_x', 'plate_z', 'release_spin_rate', 'height', 'OBP', 
     'k_pct', 'contact_pct', 'bb_pct', 'ba', 'balls', 'strikes', 'effective_speed', 
@@ -139,50 +115,30 @@ input_dict[f'count_{balls}-{strikes}'] = [1.0]
 
 X_input = pd.DataFrame(input_dict)[expected_features]
 
-# -----------------------------
-
-# -----------------------------
 viz_col, pred_col = st.columns([1, 1])
 
 if model:
-    probs = model.predict_proba(X_input)[0]
-    outcomes = ['Ball', 'Strike', 'In Play']
-    
-    with viz_col:
-        st.subheader("🎯 Pitch Location")
-        fig, ax = plt.subplots(figsize=(5, 6))
-        fig.patch.set_facecolor('#f5f7f9')
+    try:
+        probs = model.predict_proba(X_input)[0]
+        outcomes = ['Ball', 'Strike', 'In Play']
         
-        # Strike Zone (approximate 17" wide, knee to chest)
-        ax.add_patch(Rectangle((-0.85, 1.6), 1.7, 1.8, edgecolor='#333333', facecolor='#e1e8ef', alpha=0.5, linewidth=3, label="Strike Zone"))
-        
-        # Inner "Heart" of the zone
-        ax.add_patch(Rectangle((-0.5, 2.0), 1.0, 1.0, edgecolor='#cc0000', facecolor='none', linestyle='--', alpha=0.3))
-        
-        # The Ball
-        ax.add_patch(Circle((plate_x, plate_z), 0.12, color='#cc0000', zorder=5))
-        ax.annotate("Pitch", (plate_x + 0.15, plate_z), fontsize=10, fontweight='bold')
+        with viz_col:
+            st.subheader("🎯 Pitch Location")
+            fig, ax = plt.subplots(figsize=(5, 6))
+            fig.patch.set_facecolor('#f5f7f9')
+            ax.add_patch(Rectangle((-0.85, 1.6), 1.7, 1.8, edgecolor='#333333', facecolor='#e1e8ef', alpha=0.5, linewidth=3))
+            ax.add_patch(Rectangle((-0.5, 2.0), 1.0, 1.0, edgecolor='#cc0000', facecolor='none', linestyle='--', alpha=0.3))
+            ax.add_patch(Circle((plate_x, plate_z), 0.12, color='#cc0000', zorder=5))
+            ax.set_xlim(-2.5, 2.5)
+            ax.set_ylim(0, 5.5)
+            ax.axvline(0, color='gray', linestyle='-', linewidth=0.5)
+            st.pyplot(fig)
 
-        # Formatting
-        ax.set_xlim(-2.5, 2.5)
-        ax.set_ylim(0, 5.5)
-        ax.axvline(0, color='gray', linestyle='-', linewidth=0.5)
-        ax.set_xticks([-2, -0.85, 0, 0.85, 2])
-        ax.set_title(f"{pitch_type} vs {player}", fontsize=12)
-        st.pyplot(fig)
-
-    with pred_col:
-        st.subheader("📊 Probability Breakdown")
-        
-        # Create a nice colored bar chart
-        chart_data = pd.DataFrame({'Outcome': outcomes, 'Probability': probs})
-        
-        # Display as a table first for clarity
-        st.dataframe(chart_data.set_index('Outcome').style.format("{:.1%}"), use_container_width=True)
-        
-        # Custom bar chart using Streamlit native
-        st.bar_chart(chart_data.set_index('Outcome'))
-        
-        # Summary Text
-        max_idx = np.argmax(probs)
-        st.info(f"💡 **Prediction:** The most likely outcome is a **{outcomes[max_idx]}** ({probs[max_idx]:.1%})")
+        with pred_col:
+            st.subheader("📊 Probabilities")
+            chart_data = pd.DataFrame({'Outcome': outcomes, 'Probability': probs})
+            st.bar_chart(chart_data.set_index('Outcome'))
+            max_idx = np.argmax(probs)
+            st.success(f"Top Prediction: {outcomes[max_idx]} ({probs[max_idx]:.1%})")
+    except Exception as e:
+        st.error(f"Error: {e}")
