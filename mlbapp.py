@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle, Circle
 import pickle
 from io import StringIO
+import altair as alt
 
 st.set_page_config(page_title="MLB Pitch Predictor v1.1.1", page_icon="⚾", layout="wide")
 HIT_THRESHOLD = 0.30
@@ -18,6 +19,7 @@ st.markdown("""
 
 @st.cache_resource
 def load_model():
+    # Ensure this file exists in your directory
     with open("xgb_models.pkl", "rb") as f:
         return pickle.load(f)
 
@@ -167,7 +169,20 @@ with right:
         "Outcome": outcomes,
         "Probability": [probs[0], probs[1], probs[2]]
     })
-    st.bar_chart(prob_df.set_index("Outcome"))
+    
+    # Using Altair to lock the Y-axis between 0 and 1
+    prob_chart = (
+        alt.Chart(prob_df)
+        .mark_bar()
+        .encode(
+            x=alt.X("Outcome", sort=None),
+            y=alt.Y("Probability", scale=alt.Scale(domain=[0, 1])),
+            color=alt.value("#1f77b4")
+        )
+        .properties(height=350)
+    )
+    st.altair_chart(prob_chart, use_container_width=True)
+
     color = "green" if prediction == "In Play" else "blue"
     st.markdown(f"### Prediction: :{color}[{prediction}]")
     st.write(f"Confidence Score: **{probs[pred_idx]:.1%}**")
