@@ -6,10 +6,7 @@ from matplotlib.patches import Rectangle, Circle
 import pickle
 from io import StringIO
 
-# =============================
-# CONFIG
-# =============================
-st.set_page_config(page_title="MLB Pitch Predictor v1.1.1", page_icon="⚾", layout="wide")
+st.set_page_config(page_title="MLB Pitch Predictor v2.0", page_icon="⚾", layout="wide")
 HIT_THRESHOLD = 0.30
 
 st.markdown("""
@@ -19,13 +16,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-
-# =============================
-# LOAD MODEL
-# =============================
 @st.cache_resource
 def load_model():
-    # Ensure this file exists in your directory
     with open("xgb_models.pkl", "rb") as f:
         return pickle.load(f)
 
@@ -34,10 +26,6 @@ model = load_model()
 if "history" not in st.session_state:
     st.session_state.history = []
 
-
-# =============================
-# BATTER CSV
-# =============================
 players_csv = """
 player,height,OBP,k_pct,contact_pct,stance,bb_pct,ba
 "Judge, Aaron",79,0.457,0.236,0.654,R,0.183,0.331
@@ -54,10 +42,6 @@ player,height,OBP,k_pct,contact_pct,stance,bb_pct,ba
 """
 players_df = pd.read_csv(StringIO(players_csv))
 
-
-# =============================
-# SIDEBAR INPUTS
-# =============================
 st.sidebar.header("⚾ Pitch Lab")
 
 player = st.sidebar.selectbox("Select Batter", players_df["player"])
@@ -69,27 +53,20 @@ pitch_type = st.sidebar.selectbox(
      "Split-Finger", "Curveball", "Knuckle Curve", "Slurve", "Sweeper"]
 )
 
-release_speed = st.sidebar.slider("Release Speed (mph)", 70.0, 105.0, 95.0, 0.5)
-effective_speed = st.sidebar.slider("Effective Speed (mph)", 70.0, 105.0, 95.0, 0.5)
-release_spin_rate = st.sidebar.slider("Spin Rate (rpm)", 1500.0, 3500.0, 2300.0, 50.0)
-plate_x = st.sidebar.slider("Plate X (Horizontal)", -2.5, 2.5, 0.0, 0.01)
-plate_z = st.sidebar.slider("Plate Z (Vertical)", 0.0, 5.0, 2.5, 0.01)
-balls = st.sidebar.selectbox("Balls", [0, 1, 2, 3])
-strikes = st.sidebar.selectbox("Strikes", [0, 1, 2])
-release_pos_y = st.sidebar.slider("Release Pos Y", 45.0, 60.0, 54.0, 0.1)
-release_extension = st.sidebar.slider("Release Extension", 5.0, 8.0, 6.5, 0.1)
+release_speed = st.sidebar.slider("Velocity: Release Speed (mph)", 70.0, 105.0, 95.0, 0.5)
+effective_speed = st.sidebar.slider("Velocity: Effective Speed (mph)", 70.0, 105.0, 95.0, 0.5)
+release_spin_rate = st.sidebar.slider("Movement: Spin Rate (rpm)", 1500.0, 3500.0, 2300.0, 50.0)
+plate_x = st.sidebar.slider("Location: Horizontal Plate X (ft)", -2.5, 2.5, 0.0, 0.01)
+plate_z = st.sidebar.slider("Location: Vertical Plate Z (ft)", 0.0, 5.0, 2.5, 0.01)
+balls = st.sidebar.selectbox("Situation: Balls", [0, 1, 2, 3])
+strikes = st.sidebar.selectbox("Situation: Strikes", [0, 1, 2])
+release_pos_y = st.sidebar.slider("Release: Y-Position (Distance from Plate)", 45.0, 60.0, 54.0, 0.1)
+release_extension = st.sidebar.slider("Release: Extension (ft)", 5.0, 8.0, 6.5, 0.1)
+bat_speed = st.sidebar.slider("Swing: Bat Speed (mph)", 0.0, 90.0, 70.0, 0.5)
+swing_length = st.sidebar.slider("Swing: Swing Length (ft)", 5.0, 25.0, 12.0, 0.5)
 
-# Updated Swing Logic
-bat_speed = st.sidebar.slider("Bat Speed (mph)", 0.0, 90.0, 70.0, 0.5)
-swing_length = st.sidebar.slider("Swing Length (ft)", 5.0, 25.0, 12.0, 0.5)
-
-# Derived feature: If speed > 0, they swung.
 swing = 1 if bat_speed > 0 else 0
 
-
-# =============================
-# FEATURE ENGINEERING
-# =============================
 count = f"{balls}-{strikes}"
 distance_from_center = np.sqrt(plate_x**2 + (plate_z - 2.5)**2)
 strikes_vs_balls = int(strikes > balls)
@@ -101,10 +78,6 @@ meatball = int(
 hittability = batter_stats.contact_pct / (1 + distance_from_center)
 spin_effect = release_spin_rate * release_speed
 
-
-# =============================
-# BUILD INPUT ROW
-# =============================
 X_input = pd.DataFrame([{
     "release_speed": release_speed,
     "plate_x": plate_x,
@@ -135,18 +108,28 @@ X_input = pd.DataFrame([{
     f"count_{count}": 1,
 }]).fillna(0)
 
-
-# Align with trained columns
 if hasattr(model, "feature_names_in_"):
     X_input = X_input.reindex(columns=model.feature_names_in_, fill_value=0)
 
-
-# =============================
-# PREDICTION + THRESHOLD
-# =============================
 probs = model.predict_proba(X_input)[0]
 
-# class order: 0 = ball, 1 = hit_into_play, 2 = strike
+if swing == 1:
+    probs[0] = 0
+    sum_remaining = probs[1] + probs[2]
+    if sum_remaining > 0:
+        probs[1] = probs[1] / sum_remaining
+        probs[2] = probs[2] / sum_remaining
+    else:
+        probs[1], probs[2] = 0.5, 0.5
+else:
+    probs[1] = 0
+    sum_remaining = probs[0] + probs[2]
+    if sum_remaining > 0:
+        probs[0] = probs[0] / sum_remaining
+        probs[2] = probs[2] / sum_remaining
+    else:
+        probs[0], probs[2] = 0.5, 0.5
+
 if probs[1] >= HIT_THRESHOLD:
     pred_idx = 1
 else:
@@ -155,37 +138,26 @@ else:
 outcomes = ["Ball", "In Play", "Strike"]
 prediction = outcomes[pred_idx]
 
-
-# =============================
-# UI OUTPUT
-# =============================
 st.title("⚾ MLB Pitch Predictor")
 st.subheader(f"{player} vs {pitch_type}")
 
-# Quick indicator of swing status
 if swing == 1:
     st.info(f"💨 Swing Detected: {bat_speed} mph")
 else:
-    st.warning("✋ Batter took the pitch (Bat Speed = 0)")
+    st.warning("✋ Batter Took Pitch: Ball/Strike logic active")
 
 left, right = st.columns(2)
 
 with left:
     fig, ax = plt.subplots(figsize=(5, 6))
-    # Strike Zone
     ax.add_patch(Rectangle((-0.85, 1.6), 1.7, 1.8, fill=False, linewidth=2, color="black"))
-
-    # Batter Silhouette (Simple)
     batter_x = 1.6 if batter_stats.stance == "R" else -1.6
     ax.add_patch(Rectangle((batter_x - 0.2, 1.5), 0.4, 2.8, color="gray", alpha=0.3))
     ax.add_patch(Circle((batter_x, 4.5), 0.2, color="gray", alpha=0.3))
-
-    # Pitch Location
     ax.scatter(plate_x, plate_z, s=150, c="red", edgecolors="white", zorder=5)
-    
     ax.set_xlim(-2.5, 2.5)
     ax.set_ylim(0, 5.5)
-    ax.set_title("Pitch Location (Catcher's View)")
+    ax.set_title("Pitch Location")
     ax.grid(alpha=0.2)
     st.pyplot(fig)
 
@@ -196,26 +168,17 @@ with right:
         "Probability": [probs[0], probs[1], probs[2]]
     })
     st.bar_chart(prob_df.set_index("Outcome"))
-    
-    # Result Highlight
     color = "green" if prediction == "In Play" else "blue"
     st.markdown(f"### Prediction: :{color}[{prediction}]")
-    st.write(f"In Play Probability: **{probs[1]:.1%}** (Threshold: {HIT_THRESHOLD*100:.0f}%)")
+    st.write(f"Confidence Score: **{probs[pred_idx]:.1%}**")
 
-
-# =============================
-# HISTORY
-# =============================
-# Avoid appending on every minor UI interaction if possible, 
-# but for Streamlit simplicity, we append to history here:
 st.session_state.history.append({
     "Batter": player,
     "Pitch": pitch_type,
-    "Speed": release_speed,
+    "Velo": release_speed,
     "Prediction": prediction,
     "In Play Prob": round(float(probs[1]), 3)
 })
 
 st.subheader("📜 Recent Predictions")
-# Show only unique or last 10 for better readability
 st.dataframe(pd.DataFrame(st.session_state.history).tail(10), use_container_width=True)
