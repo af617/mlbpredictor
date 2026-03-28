@@ -7,7 +7,7 @@ import pickle
 from io import StringIO
 import altair as alt
 
-st.set_page_config(page_title="MLB Pitch Predictor v1.1.1", page_icon="⚾", layout="wide")
+st.set_page_config(page_title="MLB Pitch Predictor v1.1.2", page_icon="⚾", layout="wide")
 HIT_THRESHOLD = 0.30
 
 st.markdown("""
@@ -140,13 +140,13 @@ else:
 outcomes = ["Ball", "In Play", "Strike"]
 prediction = outcomes[pred_idx]
 
-st.title("⚾ MLB Pitch Predictor v1.1.1")
+st.title("⚾ MLB Pitch Predictor v1.1.2")
 st.subheader(f"{player} vs {pitch_type}")
 
 if swing == 1:
-    st.info(f"💨 Swing Detected: {bat_speed} mph")
+    st.info(f"Swing Detected: {bat_speed} mph")
 else:
-    st.warning("✋ Batter Took Pitch: Ball/Strike logic active")
+    st.warning("Batter Took Pitch: Ball/Strike logic active")
 
 left, right = st.columns(2)
 
@@ -195,5 +195,5 @@ st.session_state.history.append({
     "In Play Prob": round(float(probs[1]), 3)
 })
 
-st.subheader("📜 Recent Predictions")
+st.subheader("Recent Predictions")
 st.dataframe(pd.DataFrame(st.session_state.history).tail(10), use_container_width=True)
