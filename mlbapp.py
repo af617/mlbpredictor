@@ -138,7 +138,7 @@ else:
 outcomes = ["Ball", "In Play", "Strike"]
 prediction = outcomes[pred_idx]
 
-st.title("⚾ MLB Pitch Predictor")
+st.title("⚾ MLB Pitch Predictor v1.1.1")
 st.subheader(f"{player} vs {pitch_type}")
 
 if swing == 1:
