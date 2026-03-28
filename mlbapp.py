@@ -26,7 +26,6 @@ def load_model():
 
 model = load_model()
 
-# Initialize session state for pitch history
 if 'history' not in st.session_state:
     st.session_state.history = []
 
@@ -68,15 +67,20 @@ with st.sidebar:
     release_speed = st.slider("Velocity (mph)", 70.0, 105.0, 95.0, 0.5)
     effective_speed = st.slider("Effective Velocity (mph)", 70.0, 105.0, 95.0, 0.5)
     release_spin_rate = st.slider("Spin Rate (rpm)", 1500.0, 3500.0, 2300.0, 50.0)
-    plate_x = st.slider("Horizontal (Left/Right)", -2.5, 2.5, 0.0, 0.01)
-    plate_z = st.slider("Vertical (Height)", 0.0, 5.0, 2.5, 0.01)
+    plate_x = st.slider("Horizontal (Plate X)", -2.5, 2.5, 0.0, 0.01)
+    plate_z = st.slider("Vertical (Plate Z)", 0.0, 5.0, 2.5, 0.01)
     b_col, s_col = st.columns(2)
     with b_col: balls = st.selectbox("Balls", [0,1,2,3])
     with s_col: strikes = st.selectbox("Strikes", [0,1,2])
     release_pos_y = st.slider("Release Height (ft)", 3.0, 8.0, 6.0, 0.1)
+    
+    st.divider()
+    if st.button("Clear History"):
+        st.session_state.history = []
+        st.rerun()
 
 st.title("⚾ MLB Pitch Analysis Dashboard")
-st.markdown(f"**Analyzing match-up:** Pitcher vs. **{player}** ({batter_stats.stance})")
+st.markdown(f"**Match-up:** Pitcher vs. **{player}** ({batter_stats.stance})")
 
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("Stance", batter_stats.stance)
@@ -86,6 +90,7 @@ m4.metric("Count", f"{balls}-{strikes}")
 
 st.divider()
 
+# Feature Preparation logic stays the same...
 expected_features = [
     'release_speed', 'plate_x', 'plate_z', 'release_spin_rate', 'height', 'OBP', 
     'k_pct', 'contact_pct', 'bb_pct', 'ba', 'balls', 'strikes', 'effective_speed', 
@@ -128,11 +133,11 @@ if model:
         max_idx = np.argmax(probs)
         prediction = outcomes[max_idx]
 
-        # Log to history
         st.session_state.history.append({
             "Batter": player,
             "Pitch": pitch_type,
-            "Speed": release_speed,
+            "X": plate_x,
+            "Z": plate_z,
             "Result": f"{prediction} ({probs[max_idx]:.1%})"
         })
 
@@ -141,32 +146,26 @@ if model:
             fig, ax = plt.subplots(figsize=(5, 6))
             fig.patch.set_facecolor('#f5f7f9')
             
-            # ORIENTATION FIX: 
-            # From pitcher's view, a Righty (R) stands on the RIGHT side of the plate.
-            # From pitcher's view, a Lefty (L) stands on the LEFT side of the plate.
+            # ORIENTATION: Righty (R) stands on the RIGHT side from pitcher view
             batter_x_pos = 1.6 if batter_stats.stance == 'R' else -1.6
             
-            # Batter Silhouette
             ax.add_patch(Rectangle((batter_x_pos - 0.2, 1.5), 0.4, 2.8, color='#1d3557', alpha=0.7))
             ax.add_patch(Circle((batter_x_pos, 4.5), 0.22, color='#1d3557', alpha=0.7))
             
-            # Home Plate (House Shape)
             plate_coords = [[-0.85, 0.4], [0.85, 0.4], [0.85, 0.2], [0, 0], [-0.85, 0.2]]
             ax.add_patch(Polygon(plate_coords, closed=True, color='#adb5bd', alpha=0.6))
             
-            # Strike Zone
             ax.add_patch(Rectangle((-0.85, 1.6), 1.7, 1.8, edgecolor='#343a40', facecolor='#ffffff', alpha=0.4, linewidth=3))
-            
-            # Heart of Zone
             ax.add_patch(Rectangle((-0.4, 2.1), 0.8, 0.8, edgecolor='#e63946', facecolor='none', linestyle='--', alpha=0.3))
-            
-            # The Pitch
             ax.add_patch(Circle((plate_x, plate_z), 0.12, color='#e63946', zorder=15, edgecolor='black'))
             
+            # Restored Axis Labels and Ticks
             ax.set_xlim(-2.5, 2.5)
             ax.set_ylim(0, 5.5)
+            ax.set_xlabel("Horizontal Position (ft)")
+            ax.set_ylabel("Vertical Position (ft)")
             ax.axvline(0, color='#6c757d', linestyle='-', linewidth=0.5)
-            ax.set_axis_off()
+            ax.grid(True, linestyle=':', alpha=0.4)
             st.pyplot(fig)
 
         with pred_col:
@@ -175,11 +174,10 @@ if model:
             st.bar_chart(chart_data.set_index('Outcome'))
             st.success(f"Top Prediction: {prediction} ({probs[max_idx]:.1%})")
 
-        # History Table
         if st.session_state.history:
             st.divider()
-            st.subheader("📜 Pitch History (This Session)")
-            history_df = pd.DataFrame(st.session_state.history).iloc[::-1] # Show newest first
+            st.subheader("📜 Recent Pitches")
+            history_df = pd.DataFrame(st.session_state.history).iloc[::-1]
             st.table(history_df.head(5))
             
     except Exception as e:
