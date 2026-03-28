@@ -4,5 +4,8 @@ V1.1.0: Overhauled the machine learning model: ~25,000 pitches used and two new 
 
 
 V1.1.1: Added unit labels to the sliders, 
-removed the option for the user to select if the batter swung; instead, that will automatically be inputted depending if the swing_speed = 0 or >0. For example, if swing_speed is 20mph, then swing will be ‘yes’. If swing_speed is 0mph, then swing will be ‘no’. 
+removed the option for the user to select if the batter swung; instead, that will automatically be inputted depending if the swing_speed = 0 or >0. 
+For example, if swing_speed is 20mph, then swing will be ‘yes’. If swing_speed is 0mph, then swing will be ‘no’. 
 Added additional dialogue depending on the swing_speed. Added more colors and emojis.
+
+V1.1.2: Fixed the y-axis labels to stay at 1.0 rather than changing based on the highest percentage outcome. Removed some emojis. 
