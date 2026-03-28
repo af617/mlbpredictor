@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle, Circle
+from matplotlib.patches import Rectangle, Circle, Ellipse
 import pickle
 from io import StringIO
 
@@ -123,35 +123,31 @@ if model:
         outcomes = ['Ball', 'Strike', 'In Play']
         
         with viz_col:
-            st.subheader("🎯 Pitcher's Perspective")
+            st.subheader("🎯 Pitch Location")
             fig, ax = plt.subplots(figsize=(5, 6))
             fig.patch.set_facecolor('#f5f7f9')
             
-            # PITCHER VIEW LOGIC: 
-            # Righties stand to the left of the plate (from pitcher's eye)
-            # Lefties stand to the right of the plate
-            batter_side = -1.5 if batter_stats.stance == 'R' else 1.5
+            # Draw Batter
+            batter_x = -1.5 if batter_stats.stance == 'R' else 1.5
+            ax.add_patch(Rectangle((batter_x - 0.25, 1.5), 0.5, 2.5, color='#2e7bcf', alpha=0.4, label="Batter"))
+            ax.add_patch(Circle((batter_x, 4.3), 0.25, color='#2e7bcf', alpha=0.4))
             
-            # Draw Batter Silhouette
-            ax.add_patch(Rectangle((batter_side - 0.25, 1.5), 0.5, 2.7, color='#1d3557', alpha=0.6))
-            ax.add_patch(Circle((batter_side, 4.5), 0.25, color='#1d3557', alpha=0.6))
-            
-            # Home Plate (Stylized)
-            ax.add_patch(Rectangle((-0.85, 0.1), 1.7, 0.2, color='#adb5bd', alpha=0.5))
+            # Home Plate
+            ax.add_patch(Rectangle((-0.85, 0.1), 1.7, 0.2, color='gray', alpha=0.3))
             
             # Strike Zone
-            ax.add_patch(Rectangle((-0.85, 1.6), 1.7, 1.8, edgecolor='#343a40', facecolor='#ffffff', alpha=0.4, linewidth=3))
+            ax.add_patch(Rectangle((-0.85, 1.6), 1.7, 1.8, edgecolor='#333333', facecolor='#e1e8ef', alpha=0.5, linewidth=3))
             
             # Heart of Zone
-            ax.add_patch(Rectangle((-0.4, 2.1), 0.8, 0.8, edgecolor='#e63946', facecolor='none', linestyle='--', alpha=0.3))
+            ax.add_patch(Rectangle((-0.5, 2.0), 1.0, 1.0, edgecolor='#cc0000', facecolor='none', linestyle='--', alpha=0.3))
             
-            # The Ball (zorder makes it stay on top)
-            ax.add_patch(Circle((plate_x, plate_z), 0.12, color='#e63946', zorder=10, edgecolor='black', linewidth=1))
+            # The Pitch
+            ax.add_patch(Circle((plate_x, plate_z), 0.12, color='#cc0000', zorder=10))
             
             ax.set_xlim(-2.5, 2.5)
             ax.set_ylim(0, 5.5)
-            ax.axvline(0, color='#6c757d', linestyle='-', linewidth=0.5)
-            ax.set_axis_off()
+            ax.axvline(0, color='gray', linestyle='-', linewidth=0.5)
+            ax.set_title(f"Batter View ({batter_stats.stance}HH)")
             st.pyplot(fig)
 
         with pred_col:
