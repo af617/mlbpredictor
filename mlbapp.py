@@ -3,16 +3,18 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle, Circle
-import pickle  # Assuming you saved your trained XGBoost model
+import pickle
+from io import StringIO
+
 
 # -----------------------------
-# 1️⃣ Load Model & Player Data
-# -----------------------------
-# Load trained model
-with open("xgb_models.pkl", "rb") as f:
-    model = pickle.load(f)
+@st.cache_resource
+def load_model():
+    with open("xgb_models.pkl", "rb") as f:
+        return pickle.load(f)
 
-# Load batter stats
+model = load_model()
+
 players_csv = """
 player,height,OBP,k_pct,contact_pct,stance,bb_pct,ba
 "Judge, Aaron",79,0.457,0.236,0.654,R,0.183,0.331
@@ -38,11 +40,9 @@ player,height,OBP,k_pct,contact_pct,stance,bb_pct,ba
 "Tucker, Kyle",75,0.377,0.148,0.798,L,0.146,0.266
 "Buxton, Byron",73,0.327,0.273,0.687,R,0.076,0.264
 """
-from io import StringIO
 players_df = pd.read_csv(StringIO(players_csv))
 
-# -----------------------------
-# 2️⃣ Streamlit Sidebar Inputs
+
 # -----------------------------
 st.title("⚾ Baseball Pitch Outcome Predictor")
 
@@ -56,21 +56,19 @@ pitch_type = st.selectbox(
     ["4-Seam Fastball", "Changeup", "Slider", "Sinker", "Cutter", "Split-Finger", "Curveball", "Knuckle Curve", "Slurve", "Sweeper"]
 )
 
-# Sliders for pitch info
-release_speed = st.slider("Release Speed (mph)", 70, 105, 95)
-release_spin_rate = st.slider("Spin Rate (rpm)", 1800, 3000, 2300)
-plate_x = st.slider("Plate X (feet, left=-, right=+)", -2.0, 2.0, 0.0, 0.01)
+# Sliders - Ensuring float types for coordination
+release_speed = st.slider("Release Speed (mph)", 70.0, 105.0, 95.0)
+release_spin_rate = st.slider("Spin Rate (rpm)", 1500.0, 3500.0, 2300.0)
+plate_x = st.slider("Plate X (feet, left=-, right=+)", -2.5, 2.5, 0.0, 0.01)
 plate_z = st.slider("Plate Z (feet, bottom=0, top=5)", 0.0, 5.0, 2.5, 0.01)
 balls = st.slider("Balls Count", 0, 3, 0)
 strikes = st.slider("Strikes Count", 0, 2, 0)
-effective_speed = st.slider("Effective Speed (mph)\nAdjusted for spin and movement", 70, 105, 95)
-release_pos_y = st.slider("Release Pos Y (feet above ground)", 3, 8, 6)
+effective_speed = st.slider("Effective Speed (mph)", 70.0, 105.0, 95.0)
+release_pos_y = st.slider("Release Pos Y (feet)", 3.0, 8.0, 6.0)
 
 # -----------------------------
-# 3️⃣ Prepare Features for Model
-# -----------------------------
 
-# 1. Define ALL expected features in the EXACT order from the error message
+# List from your specific error message
 expected_features = [
     'release_speed', 'plate_x', 'plate_z', 'release_spin_rate', 'height', 'OBP', 
     'k_pct', 'contact_pct', 'bb_pct', 'ba', 'balls', 'strikes', 'effective_speed', 
@@ -86,59 +84,71 @@ expected_features = [
     'count_3-1', 'count_3-2'
 ]
 
-# 2. Initialize a dictionary with 0 for all features
-input_data = {feat: [0] for feat in expected_features}
+# Initialize all features to 0.0
+input_dict = {feat: [0.0] for feat in expected_features}
 
-# 3. Fill in the values from your sliders/data
-input_data['release_speed'] = [release_speed]
-input_data['plate_x'] = [plate_x]
-input_data['plate_z'] = [plate_z]
-input_data['release_spin_rate'] = [release_spin_rate]
-input_data['effective_speed'] = [effective_speed]
-input_data['release_pos_y'] = [release_pos_y]
-input_data['balls'] = [balls]
-input_data['strikes'] = [strikes]
+# Update with user inputs
+input_dict['release_speed'] = [float(release_speed)]
+input_dict['plate_x'] = [float(plate_x)]
+input_dict['plate_z'] = [float(plate_z)]
+input_dict['release_spin_rate'] = [float(release_spin_rate)]
+input_dict['effective_speed'] = [float(effective_speed)]
+input_dict['release_pos_y'] = [float(release_pos_y)]
+input_dict['balls'] = [float(balls)]
+input_dict['strikes'] = [float(strikes)]
 
-# Batter Stats
-input_data['height'] = [batter_stats.height]
-input_data['OBP'] = [batter_stats.OBP]
-input_data['k_pct'] = [batter_stats.k_pct]
-input_data['contact_pct'] = [batter_stats.contact_pct]
-input_data['bb_pct'] = [batter_stats.bb_pct]
-input_data['ba'] = [batter_stats.ba]
+# Player Stats
+input_dict['height'] = [float(batter_stats.height)]
+input_dict['OBP'] = [float(batter_stats.OBP)]
+input_dict['k_pct'] = [float(batter_stats.k_pct)]
+input_dict['contact_pct'] = [float(batter_stats.contact_pct)]
+input_dict['bb_pct'] = [float(batter_stats.bb_pct)]
+input_dict['ba'] = [float(batter_stats.ba)]
 
-# Handle Categorical logic (One-Hot Encoding)
-input_data[f'pitch_name_{pitch_type}'] = [1]
-input_data[f'stance_{batter_stats.stance}'] = [1]
-input_data[f'count_{balls}-{strikes}'] = [1]
+# Derived Features
+input_dict['distance_from_center'] = [np.sqrt(plate_x**2 + (plate_z - 2.5)**2)]
+input_dict['strikes_vs_balls'] = [strikes / (balls + 1)]
+input_dict['meatball'] = [1.0 if (abs(plate_x) < 0.3 and abs(plate_z - 2.5) < 0.3) else 0.0]
 
-# 4. Create the DataFrame using the ordered list
-X_input = pd.DataFrame(input_data)[expected_features]
+# Categorical Flags
+if f'pitch_name_{pitch_type}' in input_dict:
+    input_dict[f'pitch_name_{pitch_type}'] = [1.0]
 
-# -----------------------------
-# 4️⃣ Predict
-# -----------------------------
-probs = model.predict_proba(X_input)[0]
-outcomes = ['ball', 'strike', 'hit_into_play']
+if f'stance_{batter_stats.stance}' in input_dict:
+    input_dict[f'stance_{batter_stats.stance}'] = [1.0]
 
-# -----------------------------
-# 5️⃣ Display Strikezone & Ball
-# -----------------------------
-fig, ax = plt.subplots(figsize=(4,6))
-# Draw strikezone
-ax.add_patch(Rectangle((-0.85,1.6), 1.7, 1.8, edgecolor='black', facecolor='none', linewidth=2))
-# Draw ball
-ax.add_patch(Circle((plate_x, plate_z), 0.1, color='red'))
-ax.set_xlim(-2,2)
-ax.set_ylim(0,5)
-ax.set_xlabel("Plate X")
-ax.set_ylabel("Plate Z")
-ax.set_title("Strikezone")
-st.pyplot(fig)
+if f'count_{balls}-{strikes}' in input_dict:
+    input_dict[f'count_{balls}-{strikes}'] = [1.0]
+
+# Convert to DataFrame with strict ordering
+X_input = pd.DataFrame(input_dict)[expected_features]
+
 
 # -----------------------------
-# 6️⃣ Display Probability Chart
-# -----------------------------
-st.subheader("Predicted Probabilities")
-prob_df = pd.DataFrame({'Outcome': outcomes, 'Probability': probs})
-st.bar_chart(prob_df.set_index('Outcome'))
+try:
+    probs = model.predict_proba(X_input)[0]
+    outcomes = ['Ball', 'Strike', 'In Play']
+    
+
+    # -----------------------------
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("Strikezone")
+        fig, ax = plt.subplots(figsize=(4,5))
+        # Zone boundaries
+        ax.add_patch(Rectangle((-0.85, 1.6), 1.7, 1.8, edgecolor='black', facecolor='none', linewidth=2))
+        # The Pitch
+        ax.add_patch(Circle((plate_x, plate_z), 0.12, color='red', alpha=0.8))
+        ax.set_xlim(-2, 2)
+        ax.set_ylim(0, 5)
+        ax.set_aspect('equal')
+        st.pyplot(fig)
+
+    with col2:
+        st.subheader("Probabilities")
+        prob_df = pd.DataFrame({'Outcome': outcomes, 'Probability': probs})
+        st.bar_chart(prob_df.set_index('Outcome'))
+
+except Exception as e:
+    st.error(f"Prediction Error: {e}")
