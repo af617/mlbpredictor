@@ -59,8 +59,8 @@ pitch_type = st.selectbox(
 # Sliders for pitch info
 release_speed = st.slider("Release Speed (mph)", 70, 105, 95)
 release_spin_rate = st.slider("Spin Rate (rpm)", 1800, 3000, 2300)
-plate_x = st.slider("Plate X (feet, left=-, right=+)", -2, 2, 0, 0.01)
-plate_z = st.slider("Plate Z (feet, bottom=0, top=5)", 0, 5, 2.5, 0.01)
+plate_x = st.slider("Plate X (feet, left=-, right=+)", -2.0, 2.0, 0, 0.01)
+plate_z = st.slider("Plate Z (feet, bottom=0, top=5)", 0, 5.0, 2.5, 0.01)
 balls = st.slider("Balls Count", 0, 3, 0)
 strikes = st.slider("Strikes Count", 0, 2, 0)
 effective_speed = st.slider("Effective Speed (mph)\nAdjusted for spin and movement", 70, 105, 95)
