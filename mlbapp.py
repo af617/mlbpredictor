@@ -79,7 +79,7 @@ with st.sidebar:
         st.session_state.history = []
         st.rerun()
 
-st.title("⚾ MLB Pitch Analysis Dashboard")
+st.title("⚾ MLB Pitch Analysis Dashboard (v1.0.0)")
 st.markdown(f"**Match-up:** Pitcher vs. **{player}** ({batter_stats.stance})")
 
 m1, m2, m3, m4 = st.columns(4)
