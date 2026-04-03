@@ -151,11 +151,36 @@ else:
 left, right = st.columns(2)
 
 with left:
+    fig_2d, ax_2d = plt.subplots(figsize=(5, 6))
+    ax_2d.add_patch(Rectangle((-0.85, 1.6), 1.7, 1.8, fill=False, linewidth=2, color="black"))
+    batter_x = 1.6 if batter_stats.stance == "R" else -1.6
+    ax_2d.add_patch(Rectangle((batter_x - 0.2, 1.5), 0.4, 2.8, color="gray", alpha=0.3))
+    ax_2d.add_patch(Circle((batter_x, 4.5), 0.2, color="gray", alpha=0.3))
+    ax_2d.scatter(plate_x, plate_z, s=150, c="red", edgecolors="white", zorder=5)
+    ax_2d.set_xlim(-2.5, 2.5)
+    ax_2d.set_ylim(0, 5.5)
+    ax_2d.set_title("2D Pitch Location")
+    ax_2d.grid(alpha=0.2)
+    st.pyplot(fig_2d)
+
     y_traj = np.linspace(release_pos_y, 0, 50)
     x_traj = np.linspace(0, plate_x, 50)
     z_traj = np.linspace(6, plate_z, 50)
 
     fig_3d = go.Figure()
+    
+    hp_x = [-0.71, 0.71, 0.71, 0, -0.71, -0.71]
+    hp_y = [0, 0, -0.71, -1.42, -0.71, 0]
+    hp_z = [0, 0, 0, 0, 0, 0]
+    
+    fig_3d.add_trace(go.Scatter3d(
+        x=hp_x, y=hp_y, z=hp_z,
+        mode='lines',
+        line=dict(color='white', width=4),
+        surfaceaxis=2,
+        name='Home Plate'
+    ))
+
     fig_3d.add_trace(go.Scatter3d(
         x=x_traj, y=y_traj, z=z_traj,
         mode='lines',
@@ -171,7 +196,7 @@ with left:
     fig_3d.update_layout(
         scene=dict(
             xaxis=dict(title='X (ft)', range=[-3, 3]),
-            yaxis=dict(title='Y (ft)', range=[0, 60]),
+            yaxis=dict(title='Y (ft)', range=[-2, 60]),
             zaxis=dict(title='Z (ft)', range=[0, 8]),
             aspectmode='manual',
             aspectratio=dict(x=1, y=2, z=1)
@@ -180,18 +205,6 @@ with left:
         height=500
     )
     st.plotly_chart(fig_3d, use_container_width=True)
-
-    fig, ax = plt.subplots(figsize=(5, 6))
-    ax.add_patch(Rectangle((-0.85, 1.6), 1.7, 1.8, fill=False, linewidth=2, color="black"))
-    batter_x = 1.6 if batter_stats.stance == "R" else -1.6
-    ax.add_patch(Rectangle((batter_x - 0.2, 1.5), 0.4, 2.8, color="gray", alpha=0.3))
-    ax.add_patch(Circle((batter_x, 4.5), 0.2, color="gray", alpha=0.3))
-    ax.scatter(plate_x, plate_z, s=150, c="red", edgecolors="white", zorder=5)
-    ax.set_xlim(-2.5, 2.5)
-    ax.set_ylim(0, 5.5)
-    ax.set_title("Pitch Location")
-    ax.grid(alpha=0.2)
-    st.pyplot(fig)
 
 with right:
     st.subheader("📊 Outcome Probabilities")
