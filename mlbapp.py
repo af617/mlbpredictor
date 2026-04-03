@@ -65,7 +65,7 @@ strikes = st.sidebar.selectbox("Situation: Strikes", [0, 1, 2])
 release_pos_y = st.sidebar.slider("Release: Y-Position (Distance from Plate)", 45.0, 60.0, 54.0, 0.1)
 release_extension = st.sidebar.slider("Release: Extension (ft)", 5.0, 8.0, 6.5, 0.1)
 
-swing_choice = st.sidebar.radio("Swing?", ["Yes", "No"], index=0)
+swing_choice = st.sidebar.radio("Swing?", ["Yes", "No"], index=1)
 swing = 1 if swing_choice == "Yes" else 0
 
 if swing == 1:
@@ -216,8 +216,9 @@ with left:
             yaxis=dict(title='Distance', range=[-5, 65]),
             zaxis=dict(title='Height', range=[0, 8]),
             camera=dict(
-                eye=dict(x=0, y=-0.5, z=0.5),
-                center=dict(x=0, y=0, z=0.3)
+                eye=dict(x=0, y=1.8, z=0.8),
+                center=dict(x=0, y=0, z=0.3),
+                up=dict(x=0, y=0, z=1)
             ),
             aspectmode='manual',
             aspectratio=dict(x=1, y=2.5, z=1)
