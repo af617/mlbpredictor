@@ -6,6 +6,7 @@ from matplotlib.patches import Rectangle, Circle
 import pickle
 from io import StringIO
 import altair as alt
+import plotly.graph_objects as go
 
 st.set_page_config(page_title="MLB Pitch Predictor v1.1.2", page_icon="⚾", layout="wide")
 HIT_THRESHOLD = 0.30
@@ -19,7 +20,6 @@ st.markdown("""
 
 @st.cache_resource
 def load_model():
-    # Ensure this file exists in your directory
     with open("xgb_models.pkl", "rb") as f:
         return pickle.load(f)
 
@@ -151,6 +151,36 @@ else:
 left, right = st.columns(2)
 
 with left:
+    y_traj = np.linspace(release_pos_y, 0, 50)
+    x_traj = np.linspace(0, plate_x, 50)
+    z_traj = np.linspace(6, plate_z, 50)
+
+    fig_3d = go.Figure()
+    fig_3d.add_trace(go.Scatter3d(
+        x=x_traj, y=y_traj, z=z_traj,
+        mode='lines',
+        line=dict(color='red', width=5),
+        name='Pitch Path'
+    ))
+    fig_3d.add_trace(go.Scatter3d(
+        x=[plate_x], y=[0], z=[plate_z],
+        mode='markers',
+        marker=dict(size=8, color='white', line=dict(color='black', width=2)),
+        name='Plate Location'
+    ))
+    fig_3d.update_layout(
+        scene=dict(
+            xaxis=dict(title='X (ft)', range=[-3, 3]),
+            yaxis=dict(title='Y (ft)', range=[0, 60]),
+            zaxis=dict(title='Z (ft)', range=[0, 8]),
+            aspectmode='manual',
+            aspectratio=dict(x=1, y=2, z=1)
+        ),
+        margin=dict(l=0, r=0, b=0, t=0),
+        height=500
+    )
+    st.plotly_chart(fig_3d, use_container_width=True)
+
     fig, ax = plt.subplots(figsize=(5, 6))
     ax.add_patch(Rectangle((-0.85, 1.6), 1.7, 1.8, fill=False, linewidth=2, color="black"))
     batter_x = 1.6 if batter_stats.stance == "R" else -1.6
@@ -170,7 +200,6 @@ with right:
         "Probability": [probs[0], probs[1], probs[2]]
     })
     
-    # Using Altair to lock the Y-axis between 0 and 1
     prob_chart = (
         alt.Chart(prob_df)
         .mark_bar()
