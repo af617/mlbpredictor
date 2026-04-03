@@ -251,40 +251,4 @@ st.session_state.history.append({"Batter": player, "Pitch": pitch_type, "Velo": 
 st.subheader("Recent Predictions")
 st.dataframe(pd.DataFrame(st.session_state.history).tail(10), use_container_width=True)
 
-# --- Classification Report Section ---
-st.divider()
-with st.expander("📊 View Model Performance Metrics (Classification Report)"):
-    try:
-        # 1. Load the original dataset from your Downloads (or same folder)
-        # Replace 'your_pitch_data.csv' with your actual filename
-        data_path = "/Users/aidenfine/Downloads/your_pitch_data.csv"
-        df_metrics = pd.read_csv(data_path)
 
-        # 2. Define the target (Make sure this matches your CSV column name)
-        target_col = 'description' 
-        
-        if target_col in df_metrics.columns:
-            from sklearn.metrics import classification_report
-            from sklearn.model_selection import train_test_split
-
-            # 3. Prepare the test set
-            X_m = df_metrics.drop(columns=[target_col])
-            y_m = df_metrics[target_col]
-            _, X_test_m, _, y_test_m = train_test_split(X_m, y_m, test_size=0.2, random_state=42)
-
-            # 4. Align features with the model
-            if hasattr(model, "feature_names_in_"):
-                X_test_m = X_test_m.reindex(columns=model.feature_names_in_, fill_value=0)
-
-            # 5. Generate and Print Report
-            y_pred_m = model.predict(X_test_m)
-            report = classification_report(y_test_m, y_pred_m, output_dict=False)
-            
-            st.text("Model Accuracy and Per-Class Metrics:")
-            st.code(report)
-        else:
-            st.error(f"Target column '{target_col}' not found in CSV.")
-
-    except Exception as e:
-        st.warning(f"Could not generate report: {e}")
-        st.info("Ensure your training CSV is in your Downloads folder to see performance metrics.")
