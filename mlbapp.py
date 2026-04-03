@@ -20,7 +20,7 @@ st.markdown("""
 
 @st.cache_resource
 def load_model():
-    with open("batspeeds_nopfx_inplay.pkl", "rb") as f:
+    with open("xgb_models.pkl", "rb") as f:
         return pickle.load(f)
 
 model = load_model()
