@@ -151,7 +151,7 @@ else:
 left, right = st.columns(2)
 
 with left:
-    fig_2d, ax_2d = plt.subplots(figsize=(5, 6))
+    fig_2d, ax_2d = plt.subplots(figsize=(5, 5))
     ax_2d.add_patch(Rectangle((-0.85, 1.6), 1.7, 1.8, fill=False, linewidth=2, color="black"))
     batter_x = 1.6 if batter_stats.stance == "R" else -1.6
     ax_2d.add_patch(Rectangle((batter_x - 0.2, 1.5), 0.4, 2.8, color="gray", alpha=0.3))
@@ -159,7 +159,7 @@ with left:
     ax_2d.scatter(plate_x, plate_z, s=150, c="red", edgecolors="white", zorder=5)
     ax_2d.set_xlim(-2.5, 2.5)
     ax_2d.set_ylim(0, 5.5)
-    ax_2d.set_title("2D Pitch Location")
+    ax_2d.set_title("2D Strike Zone (Umpire View)")
     ax_2d.grid(alpha=0.2)
     st.pyplot(fig_2d)
 
@@ -170,39 +170,53 @@ with left:
     fig_3d = go.Figure()
     
     hp_x = [-0.71, 0.71, 0.71, 0, -0.71, -0.71]
-    hp_y = [0, 0, -0.71, -1.42, -0.71, 0]
-    hp_z = [0, 0, 0, 0, 0, 0]
+    hp_y = [0, 0, 0.5, 1.0, 0.5, 0]
+    hp_z = [0.01, 0.01, 0.01, 0.01, 0.01, 0.01]
     
     fig_3d.add_trace(go.Scatter3d(
         x=hp_x, y=hp_y, z=hp_z,
         mode='lines',
-        line=dict(color='white', width=4),
-        surfaceaxis=2,
+        line=dict(color='white', width=6),
         name='Home Plate'
+    ))
+
+    sz_x = [-0.85, 0.85, 0.85, -0.85, -0.85]
+    sz_z = [1.6, 1.6, 3.4, 3.4, 1.6]
+    sz_y = [0, 0, 0, 0, 0]
+    fig_3d.add_trace(go.Scatter3d(
+        x=sz_x, y=sz_y, z=sz_z,
+        mode='lines',
+        line=dict(color='rgba(0,0,0,0.5)', width=4),
+        name='Strike Zone'
     ))
 
     fig_3d.add_trace(go.Scatter3d(
         x=x_traj, y=y_traj, z=z_traj,
         mode='lines',
-        line=dict(color='red', width=5),
+        line=dict(color='red', width=6),
         name='Pitch Path'
     ))
+
     fig_3d.add_trace(go.Scatter3d(
         x=[plate_x], y=[0], z=[plate_z],
         mode='markers',
-        marker=dict(size=8, color='white', line=dict(color='black', width=2)),
-        name='Plate Location'
+        marker=dict(size=10, color='white', line=dict(color='black', width=2)),
+        name='Impact'
     ))
+
     fig_3d.update_layout(
         scene=dict(
-            xaxis=dict(title='X (ft)', range=[-3, 3]),
-            yaxis=dict(title='Y (ft)', range=[-2, 60]),
-            zaxis=dict(title='Z (ft)', range=[0, 8]),
+            xaxis=dict(title='Width', range=[-4, 4]),
+            yaxis=dict(title='Distance', range=[-5, 65]),
+            zaxis=dict(title='Height', range=[0, 8]),
+            camera=dict(
+                eye=dict(x=0, y=-1.5, z=1.2)
+            ),
             aspectmode='manual',
-            aspectratio=dict(x=1, y=2, z=1)
+            aspectratio=dict(x=1, y=2.5, z=1)
         ),
         margin=dict(l=0, r=0, b=0, t=0),
-        height=500
+        height=600
     )
     st.plotly_chart(fig_3d, use_container_width=True)
 
