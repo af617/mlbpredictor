@@ -8,7 +8,7 @@ from io import StringIO
 import altair as alt
 import plotly.graph_objects as go
 
-st.set_page_config(page_title="MLB Pitch Predictor v1.1.2", page_icon="⚾", layout="wide")
+st.set_page_config(page_title="MLB Pitch Predictor v1.2.0", page_icon="⚾", layout="wide")
 HIT_THRESHOLD = 0.30
 
 st.markdown("""
@@ -20,7 +20,7 @@ st.markdown("""
 
 @st.cache_resource
 def load_model():
-    with open("xgb_models.pkl", "rb") as f:
+    with open("batspeeds_nopfx_inplay.pkl", "rb") as f:
         return pickle.load(f)
 
 model = load_model()
