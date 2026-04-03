@@ -46,31 +46,72 @@ players_df = pd.read_csv(StringIO(players_csv))
 
 st.sidebar.header("⚾ Pitch Lab")
 
-player = st.sidebar.selectbox("Select Batter", players_df["player"])
+player = st.sidebar.selectbox(
+    "Select Batter", 
+    players_df["player"],
+    help="The specific MLB player currently at the plate."
+)
 batter_stats = players_df[players_df["player"] == player].iloc[0]
 
 pitch_type = st.sidebar.selectbox(
     "Pitch Type",
     ["4-Seam Fastball", "Changeup", "Slider", "Sinker", "Cutter",
-     "Split-Finger", "Curveball", "Knuckle Curve", "Slurve", "Sweeper"]
+     "Split-Finger", "Curveball", "Knuckle Curve", "Slurve", "Sweeper"],
+    help="The classification of the pitch based on its grip and movement profile."
 )
 
-release_speed = st.sidebar.slider("Velocity: Release Speed (mph)", 70.0, 105.0, 95.0, 0.5)
-effective_speed = st.sidebar.slider("Velocity: Effective Speed (mph)", 70.0, 105.0, 95.0, 0.5)
-release_spin_rate = st.sidebar.slider("Movement: Spin Rate (rpm)", 1500.0, 3500.0, 2300.0, 50.0)
-plate_x = st.sidebar.slider("Location: Horizontal Plate X (ft)", -2.5, 2.5, 0.0, 0.01)
-plate_z = st.sidebar.slider("Location: Vertical Plate Z (ft)", 0.0, 5.0, 2.5, 0.01)
-balls = st.sidebar.selectbox("Situation: Balls", [0, 1, 2, 3])
-strikes = st.sidebar.selectbox("Situation: Strikes", [0, 1, 2])
-release_pos_y = st.sidebar.slider("Release: Y-Position (Distance from Plate)", 45.0, 60.0, 54.0, 0.1)
-release_extension = st.sidebar.slider("Release: Extension (ft)", 5.0, 8.0, 6.5, 0.1)
+release_speed = st.sidebar.slider(
+    "Velocity: Release Speed (mph)", 70.0, 105.0, 95.0, 0.5,
+    help="The maximum velocity of the ball at the moment it leaves the pitcher's hand."
+)
+effective_speed = st.sidebar.slider(
+    "Velocity: Effective Speed (mph)", 70.0, 105.0, 95.0, 0.5,
+    help="The velocity of the pitch adjusted for perceived speed based on the pitcher's extension."
+)
+release_spin_rate = st.sidebar.slider(
+    "Movement: Spin Rate (rpm)", 1500.0, 3500.0, 2300.0, 50.0,
+    help="How fast the ball is spinning in revolutions per minute. Higher spin often creates more movement."
+)
+plate_x = st.sidebar.slider(
+    "Location: Horizontal Plate X (ft)", -2.5, 2.5, 0.0, 0.01,
+    help="The horizontal position of the ball as it crosses the plate (0.0 is dead center)."
+)
+plate_z = st.sidebar.slider(
+    "Location: Vertical Plate Z (ft)", 0.0, 5.0, 2.5, 0.01,
+    help="The height of the ball as it crosses the plate in feet."
+)
+balls = st.sidebar.selectbox(
+    "Situation: Balls", [0, 1, 2, 3],
+    help="Current number of balls in the count."
+)
+strikes = st.sidebar.selectbox(
+    "Situation: Strikes", [0, 1, 2],
+    help="Current number of strikes in the count."
+)
+release_pos_y = st.sidebar.slider(
+    "Release: Y-Position (ft)", 45.0, 60.0, 54.0, 0.1,
+    help="The distance from the back of home plate where the ball is released."
+)
+release_extension = st.sidebar.slider(
+    "Release: Extension (ft)", 5.0, 8.0, 6.5, 0.1,
+    help="How far the pitcher releases the ball in front of the rubber."
+)
 
-swing_choice = st.sidebar.radio("Swing?", ["Yes", "No"], index=1)
+swing_choice = st.sidebar.radio(
+    "Swing?", ["Yes", "No"], index=1,
+    help="Indicates whether the batter attempts to swing at the pitch."
+)
 swing = 1 if swing_choice == "Yes" else 0
 
 if swing == 1:
-    bat_speed = st.sidebar.slider("Swing: Bat Speed (mph)", 40.0, 90.0, 70.0, 0.5)
-    swing_length = st.sidebar.slider("Swing: Swing Length (ft)", 5.0, 25.0, 12.0, 0.5)
+    bat_speed = st.sidebar.slider(
+        "Swing: Bat Speed (mph)", 40.0, 90.0, 70.0, 0.5,
+        help="The speed of the sweet spot of the bat at the moment of impact."
+    )
+    swing_length = st.sidebar.slider(
+        "Swing: Swing Length (ft)", 5.0, 25.0, 12.0, 0.5,
+        help="The total distance the bat head travels through the swing path."
+    )
 else:
     bat_speed = 0.0
     swing_length = 0.0
@@ -174,52 +215,21 @@ with left:
     z_traj = np.linspace(6, plate_z, 50)
 
     fig_3d = go.Figure()
-    
     hp_x = [-0.71, 0.71, 0.71, 0, -0.71, -0.71]
     hp_y = [0, 0, 0.5, 1.0, 0.5, 0]
     hp_z = [0.01, 0.01, 0.01, 0.01, 0.01, 0.01]
-    
-    fig_3d.add_trace(go.Scatter3d(
-        x=hp_x, y=hp_y, z=hp_z,
-        mode='lines',
-        line=dict(color='white', width=6),
-        name='Home Plate'
-    ))
-
-    sz_x = [-0.85, 0.85, 0.85, -0.85, -0.85]
-    sz_z = [1.6, 1.6, 3.4, 3.4, 1.6]
-    sz_y = [0, 0, 0, 0, 0]
-    fig_3d.add_trace(go.Scatter3d(
-        x=sz_x, y=sz_y, z=sz_z,
-        mode='lines',
-        line=dict(color='rgba(0,0,0,0.5)', width=4),
-        name='Strike Zone'
-    ))
-
-    fig_3d.add_trace(go.Scatter3d(
-        x=x_traj, y=y_traj, z=z_traj,
-        mode='lines',
-        line=dict(color='red', width=6),
-        name='Pitch Path'
-    ))
-
-    fig_3d.add_trace(go.Scatter3d(
-        x=[plate_x], y=[0], z=[plate_z],
-        mode='markers',
-        marker=dict(size=10, color='white', line=dict(color='black', width=2)),
-        name='Impact'
-    ))
+    fig_3d.add_trace(go.Scatter3d(x=hp_x, y=hp_y, z=hp_z, mode='lines', line=dict(color='white', width=6), name='Home Plate'))
+    sz_x = [-0.85, 0.85, 0.85, -0.85, -0.85]; sz_z = [1.6, 1.6, 3.4, 3.4, 1.6]; sz_y = [0, 0, 0, 0, 0]
+    fig_3d.add_trace(go.Scatter3d(x=sz_x, y=sz_y, z=sz_z, mode='lines', line=dict(color='rgba(0,0,0,0.5)', width=4), name='Strike Zone'))
+    fig_3d.add_trace(go.Scatter3d(x=x_traj, y=y_traj, z=z_traj, mode='lines', line=dict(color='red', width=6), name='Pitch Path'))
+    fig_3d.add_trace(go.Scatter3d(x=[plate_x], y=[0], z=[plate_z], mode='markers', marker=dict(size=10, color='white', line=dict(color='black', width=2)), name='Impact'))
 
     fig_3d.update_layout(
         scene=dict(
             xaxis=dict(title='Width', range=[-4, 4]),
             yaxis=dict(title='Distance', range=[-5, 65]),
             zaxis=dict(title='Height', range=[0, 8]),
-            camera=dict(
-                eye=dict(x=0, y=1.8, z=0.8),
-                center=dict(x=0, y=0, z=0.3),
-                up=dict(x=0, y=0, z=1)
-            ),
+            camera=dict(eye=dict(x=0, y=1.8, z=0.8), center=dict(x=0, y=0, z=0.3), up=dict(x=0, y=0, z=1)),
             aspectmode='manual',
             aspectratio=dict(x=1, y=2.5, z=1)
         ),
@@ -230,34 +240,13 @@ with left:
 
 with right:
     st.subheader("📊 Outcome Probabilities")
-    prob_df = pd.DataFrame({
-        "Outcome": outcomes,
-        "Probability": [probs[0], probs[1], probs[2]]
-    })
-    
-    prob_chart = (
-        alt.Chart(prob_df)
-        .mark_bar()
-        .encode(
-            x=alt.X("Outcome", sort=None),
-            y=alt.Y("Probability", scale=alt.Scale(domain=[0, 1])),
-            color=alt.value("#1f77b4")
-        )
-        .properties(height=350)
-    )
+    prob_df = pd.DataFrame({"Outcome": outcomes, "Probability": [probs[0], probs[1], probs[2]]})
+    prob_chart = (alt.Chart(prob_df).mark_bar().encode(x=alt.X("Outcome", sort=None), y=alt.Y("Probability", scale=alt.Scale(domain=[0, 1])), color=alt.value("#1f77b4")).properties(height=350))
     st.altair_chart(prob_chart, use_container_width=True)
-
     color = "green" if prediction == "In Play" else "blue"
     st.markdown(f"### Prediction: :{color}[{prediction}]")
     st.write(f"Confidence Score: **{probs[pred_idx]:.1%}**")
 
-st.session_state.history.append({
-    "Batter": player,
-    "Pitch": pitch_type,
-    "Velo": release_speed,
-    "Prediction": prediction,
-    "In Play Prob": round(float(probs[1]), 3)
-})
-
+st.session_state.history.append({"Batter": player, "Pitch": pitch_type, "Velo": release_speed, "Prediction": prediction, "In Play Prob": round(float(probs[1]), 3)})
 st.subheader("Recent Predictions")
 st.dataframe(pd.DataFrame(st.session_state.history).tail(10), use_container_width=True)
