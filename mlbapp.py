@@ -64,10 +64,16 @@ balls = st.sidebar.selectbox("Situation: Balls", [0, 1, 2, 3])
 strikes = st.sidebar.selectbox("Situation: Strikes", [0, 1, 2])
 release_pos_y = st.sidebar.slider("Release: Y-Position (Distance from Plate)", 45.0, 60.0, 54.0, 0.1)
 release_extension = st.sidebar.slider("Release: Extension (ft)", 5.0, 8.0, 6.5, 0.1)
-bat_speed = st.sidebar.slider("Swing: Bat Speed (mph)", 0.0, 90.0, 70.0, 0.5)
-swing_length = st.sidebar.slider("Swing: Swing Length (ft)", 5.0, 25.0, 12.0, 0.5)
 
-swing = 1 if bat_speed > 0 else 0
+swing_choice = st.sidebar.radio("Swing?", ["Yes", "No"], index=0)
+swing = 1 if swing_choice == "Yes" else 0
+
+if swing == 1:
+    bat_speed = st.sidebar.slider("Swing: Bat Speed (mph)", 40.0, 90.0, 70.0, 0.5)
+    swing_length = st.sidebar.slider("Swing: Swing Length (ft)", 5.0, 25.0, 12.0, 0.5)
+else:
+    bat_speed = 0.0
+    swing_length = 0.0
 
 count = f"{balls}-{strikes}"
 distance_from_center = np.sqrt(plate_x**2 + (plate_z - 2.5)**2)
@@ -210,7 +216,8 @@ with left:
             yaxis=dict(title='Distance', range=[-5, 65]),
             zaxis=dict(title='Height', range=[0, 8]),
             camera=dict(
-                eye=dict(x=0, y=-1.5, z=1.2)
+                eye=dict(x=0, y=-0.5, z=0.5),
+                center=dict(x=0, y=0, z=0.3)
             ),
             aspectmode='manual',
             aspectratio=dict(x=1, y=2.5, z=1)
